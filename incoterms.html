@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Smart Incoterms</title>
+
+    <link rel="icon" type="image/png" href="https://img.icons8.com/?size=100&id=112466&format=png&color=0050C8">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Иконки -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { 
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'] 
+                    },
+                    colors: {
+                        seller: '#FF3B30',
+                        buyer: '#0050C8',
+                        ios: {
+                            blue: '#0050C8',
+                            red: '#FF3B30',
+                            green: '#34C759',
+                            yellow: '#FFCC00',
+                            orange: '#FF9F0A',
+                            bg: '#F2F2F7',
+                            card: '#FFFFFF',
+                            text: '#000000',
+                            gray: '#8E8E93',
+                            grayLight: '#E5E5EA',
+                            segment: 'rgba(118, 118, 128, 0.12)',
+                            tint: 'rgba(0, 80, 200, 0.1)'
+                        }
+                    },
+                    boxShadow: {
+                        'ios-segment': '0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04)',
+                        'ios-card': '0 4px 20px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.02)',
+                        'ios-float': '0 10px 40px rgba(0,0,0,0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            background-color: #F2F2F7; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        #map { height: 100%; width: 100%; z-index: 1; }
+        
+        .leaflet-control-attribution { display: none !important; }
+        .leaflet-control-zoom { display: none !important; }
+        
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pulse-marker {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            border: 3.5px solid white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .pulse-marker:active { transform: scale(1.15); }
+        .marker-seller { background-color: #FF3B30; }
+        .marker-buyer { background-color: #0050C8; }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 0.5px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .leaflet-tooltip.custom-tooltip {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 0.5px solid rgba(0,0,0,0.05);
+            border-radius: 10px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 12px;
+            letter-spacing: -0.01em;
+            color: #000;
+            padding: 5px 12px;
+        }
+
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
+    </style>
+</head>
+<body class="text-ios-text font-sans box-border flex flex-col min-h-screen lg:h-screen lg:overflow-hidden pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+
+    <!-- Сплэш-экран -->
+    <div id="splash-screen" class="fixed inset-0 z-[9999] bg-ios-bg flex items-center justify-center transition-opacity duration-1000">
+        <h1 id="splash-text" class="text-3xl md:text-4xl font-bold tracking-tight text-ios-blue opacity-0 transition-all duration-1000 transform translate-y-4 text-center px-4">
+            SMART INCOTERMS <span class="font-light text-ios-gray block sm:inline">2020</span>
+        </h1>
+    </div>
+
+    <!-- Основной контент -->
+    <div id="main-app" class="opacity-0 pointer-events-none transition-opacity duration-700 ease-in-out flex-1 flex flex-col p-4 sm:p-6 lg:p-8 w-full max-w-[1400px] mx-auto">
+
+        <!-- Заголовок -->
+        <div class="mb-4 lg:mb-6 px-1 flex justify-between items-end pb-2 border-b border-ios-grayLight/50 lg:border-none">
+            <div>
+                <h1 class="text-[30px] font-bold tracking-tight text-ios-blue leading-tight">SMART INCOTERMS <span class="font-light text-ios-gray">2020</span></h1>
+            </div>
+            <button onclick="resetMap()" class="hidden lg:flex text-ios-blue hover:opacity-70 transition-opacity items-center gap-1.5 text-[17px] font-medium bg-ios-tint px-4 py-2 rounded-full">
+                <span>Сбросить карту</span>
+            </button>
+        </div>
+
+        <main class="flex-1 w-full grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-8 lg:min-h-0 pb-6 lg:pb-0">
+            
+            <!-- ЛЕВАЯ ЧАСТЬ: Карта и Баланс -->
+            <div class="flex flex-col gap-4 lg:gap-5 lg:h-full shrink-0">
+                
+                <!-- Карта -->
+                <div class="relative h-[40vh] min-h-[300px] lg:flex-1 w-full rounded-[24px] shadow-ios-card overflow-hidden bg-ios-card z-10 border border-black/5">
+                    <div id="map"></div>
+                    
+                    <button id="mobile-reset-btn" onclick="resetMap()" class="lg:hidden absolute top-4 right-4 z-[1000] glass-panel w-10 h-10 rounded-full shadow-ios-float text-ios-blue flex items-center justify-center transition-all duration-300 opacity-0 pointer-events-none active:scale-95">
+                        <i class="fa-solid fa-arrow-rotate-left text-[16px]"></i>
+                    </button>
+                    
+                    <div id="instruction-overlay" class="absolute top-5 left-1/2 -translate-x-1/2 z-[1000] glass-panel px-5 py-3 rounded-full shadow-ios-float transition-all duration-300 w-max max-w-[90%] pointer-events-none">
+                        <p id="instruction-text" class="text-[14px] font-semibold text-ios-text flex items-center gap-2.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-seller animate-pulse shrink-0 shadow-[0_0_8px_rgba(255,59,48,0.6)]"></span>
+                            Отметьте точку Продавца
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Панель параметров -->
+                <div class="bg-ios-card p-5 lg:p-6 rounded-[24px] shadow-ios-card flex flex-col sm:flex-row gap-5 lg:gap-8 shrink-0 border border-black/5">
+                    
+                    <div class="flex-1 flex flex-col justify-center min-w-0">
+                        <label class="block text-[12px] font-medium text-ios-gray tracking-wide uppercase mb-1">Сумма контракта</label>
+                        <div class="flex items-center gap-1 mb-3">
+                            <!-- Исправлено: убран truncate, добавлен whitespace-nowrap и pr-1 -->
+                            <span id="cargo-value-display" class="text-3xl lg:text-4xl leading-none font-bold tracking-tight text-ios-text transition-colors whitespace-nowrap pr-1">$100,000</span>
+                        </div>
+
+                        <div class="bg-ios-segment p-[2px] rounded-[9px] flex w-full h-[32px] lg:h-[36px] relative" id="cargo-selector">
+                            <!-- Генерируется JS -->
+                        </div>
+                    </div>
+
+                    <div class="w-px bg-ios-grayLight hidden sm:block"></div>
+
+                    <div class="flex-1 flex flex-col justify-center min-w-0">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="min-w-0">
+                                <label class="block text-[12px] font-medium text-ios-gray tracking-wide uppercase mb-1">Маршрут</label>
+                                <!-- Исправлено: убран truncate, добавлен whitespace-nowrap и pr-1 -->
+                                <div class="flex items-baseline gap-1 whitespace-nowrap pr-1">
+                                    <span id="distance-display" class="text-3xl lg:text-4xl font-bold tracking-tight text-ios-text leading-none">0</span>
+                                    <span class="text-[15px] font-medium text-ios-gray">км</span>
+                                </div>
+                            </div>
+                            <div class="w-10 h-10 bg-ios-tint rounded-full flex items-center justify-center text-ios-blue shrink-0 ml-2">
+                                <i class="fa-solid fa-route"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Вывод стран маршрута -->
+                        <div class="min-h-[40px] flex flex-col justify-center w-full">
+                            <div id="route-countries" class="hidden flex flex-col gap-1 fade-in w-full">
+                                <div class="flex items-center gap-2 w-full">
+                                    <div class="w-2 h-2 rounded-full bg-seller shrink-0"></div>
+                                    <span class="text-[13px] text-ios-gray shrink-0">Откуда:</span>
+                                    <span id="country-a-name" class="text-[14px] font-semibold text-ios-text truncate min-w-0">Ожидание...</span>
+                                </div>
+                                <div class="flex items-center gap-2 w-full">
+                                    <div class="w-2 h-2 rounded-full bg-buyer shrink-0"></div>
+                                    <span class="text-[13px] text-ios-gray shrink-0">Куда:</span>
+                                    <span id="country-b-name" class="text-[14px] font-semibold text-ios-text truncate min-w-0">Ожидание...</span>
+                                </div>
+                            </div>
+                            <p id="route-hint" class="text-[12px] text-ios-gray font-medium leading-tight hidden sm:block text-balance w-full">Маркеры можно свободно перетаскивать по карте</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ПРАВАЯ ЧАСТЬ: Калькулятор -->
+            <div id="calculator-section" class="bg-ios-card rounded-[24px] shadow-ios-card p-5 lg:p-8 flex flex-col relative lg:overflow-y-auto mt-1 lg:mt-0 border border-black/5">
+                
+                <h2 class="text-[20px] font-bold tracking-tight text-ios-text mb-4">Условия поставки</h2>
+                
+                <div class="mb-6 flex flex-col gap-2.5">
+                    <!-- Выбор группы -->
+                    <div class="bg-ios-segment p-[2px] rounded-[9px] flex w-full h-[32px] lg:h-[36px] relative" id="group-selector"></div>
+                    <!-- Выбор базиса -->
+                    <div class="bg-ios-segment p-[2px] rounded-[9px] flex w-full h-[32px] lg:h-[36px] relative" id="incoterms-selector"></div>
+                    
+                    <div class="mt-3 bg-ios-bg rounded-xl p-3 flex flex-col gap-1.5">
+                        <div class="flex items-center justify-between">
+                            <p id="incoterm-title" class="text-[16px] font-bold text-ios-text"></p>
+                            <span id="incoterm-transport" class="text-[12px] px-2 py-1 bg-ios-grayLight/60 rounded text-ios-gray font-semibold flex items-center gap-1.5"></span>
+                        </div>
+                        <p id="incoterm-desc" class="text-[13px] text-ios-gray leading-snug"></p>
+                    </div>
+                </div>
+
+                <!-- Заглушка -->
+                <div id="results-placeholder" class="flex-1 flex flex-col items-center justify-center text-center opacity-40 py-8 lg:py-0">
+                    <i class="fa-solid fa-map-location-dot text-[48px] text-ios-gray mb-4"></i>
+                    <h3 class="text-[17px] font-semibold text-ios-text max-w-[250px]">Постройте маршрут на карте</h3>
+                </div>
+
+                <!-- Результаты -->
+                <div id="results-content" class="hidden flex-1 flex flex-col justify-center fade-in">
+                    
+                    <!-- Визуализация долей -->
+                    <div class="mb-8">
+                        <div class="flex justify-between items-end mb-3">
+                            <div>
+                                <div class="flex items-center gap-1.5 mb-0.5">
+                                    <div class="w-2 h-2 rounded-full bg-seller"></div>
+                                    <p class="text-[13px] font-medium text-ios-gray">Продавец</p>
+                                </div>
+                                <p id="seller-total" class="text-[28px] font-bold tracking-tight text-ios-text leading-none">$0</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="flex items-center justify-end gap-1.5 mb-0.5">
+                                    <p class="text-[13px] font-medium text-ios-gray">Покупатель</p>
+                                    <div class="w-2 h-2 rounded-full bg-buyer"></div>
+                                </div>
+                                <p id="buyer-total" class="text-[28px] font-bold tracking-tight text-ios-text leading-none">$0</p>
+                            </div>
+                        </div>
+                        
+                        <div class="h-[12px] bg-ios-grayLight rounded-full overflow-hidden flex relative shadow-inner">
+                            <div id="seller-bar" class="h-full bg-seller transition-all duration-700 ease-in-out border-r-2 border-white"></div>
+                            <div id="buyer-bar" class="h-full bg-buyer transition-all duration-700 ease-in-out"></div>
+                        </div>
+                    </div>
+
+                    <!-- Переход Рисков -->
+                    <div class="bg-ios-bg rounded-[20px] p-4 lg:p-5 flex items-start gap-3.5 relative overflow-hidden mb-8 lg:mb-auto">
+                        <div class="w-10 h-10 rounded-[10px] bg-ios-orange shadow-sm flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid fa-triangle-exclamation text-white text-[18px]"></i>
+                        </div>
+                        <div class="pt-0.5">
+                            <h3 class="text-[15px] font-semibold text-ios-text tracking-tight mb-0.5">Момент риска</h3>
+                            <p id="risk-point" class="text-[14px] text-ios-gray leading-snug"></p>
+                        </div>
+                    </div>
+
+                    <!-- Итог -->
+                    <div class="pt-5 border-t border-ios-grayLight/60 flex items-center justify-between">
+                        <span class="text-[17px] font-semibold text-ios-text">Итоговая стоимость</span>
+                        <!-- Исправлено: добавлен pr-1 -->
+                        <span id="total-deal-cost" class="text-[32px] font-bold tracking-tight text-ios-text pr-1">$0</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- ОБНОВЛЕННЫЕ ДАННЫЕ ИНКОТЕРМС (По вашей таблице) ---
+        const INCOTERMS_GROUPS = {
+            'E': ['EXW'],
+            'F': ['FCA', 'FAS', 'FOB'],
+            'C': ['CFR', 'CIF', 'CPT', 'CIP'],
+            'D': ['DAP', 'DPU', 'DDP']
+        };
+
+        const INCOTERMS = {
+            'EXW': {
+                name: 'Ex Works', desc: 'Продавец предоставляет товар на своем предприятии. Вся логистика и таможня — на покупателе.', transport: 'Любой',
+                seller: ['goods'], buyer: ['export', 'freight', 'insurance', 'import', 'delivery'],
+                risk: 'Склад продавца'
+            },
+            'FCA': {
+                name: 'Free Carrier', desc: 'Продавец выполняет экспортную очистку и передает товар перевозчику покупателя.', transport: 'Любой',
+                seller: ['goods', 'export'], buyer: ['freight', 'insurance', 'import', 'delivery'],
+                risk: 'Передача перевозчику'
+            },
+            'FAS': {
+                name: 'Free Alongside Ship', desc: 'Продавец доставляет товар к борту судна. Применяется только для морских перевозок.', transport: 'Морской',
+                seller: ['goods', 'export'], buyer: ['freight', 'insurance', 'import', 'delivery'],
+                risk: 'Вдоль борта'
+            },
+            'FOB': {
+                name: 'Free On Board', desc: 'Продавец загружает товар на борт судна. Применяется только для морских перевозок.', transport: 'Морской',
+                seller: ['goods', 'export'], buyer: ['freight', 'insurance', 'import', 'delivery'],
+                risk: 'На борту'
+            },
+            'CFR': {
+                name: 'Cost and Freight', desc: 'Продавец оплачивает фрахт до порта назначения, но риск переходит после погрузки.', transport: 'Морской',
+                seller: ['goods', 'export', 'freight'], buyer: ['insurance', 'import', 'delivery'],
+                risk: 'На борту'
+            },
+            'CIF': {
+                name: 'Cost, Insurance & Freight', desc: 'Как CFR, но продавец обязан обеспечить базовое морское страхование (С).', transport: 'Морской',
+                seller: ['goods', 'export', 'freight', 'insurance'], buyer: ['import', 'delivery'],
+                risk: 'На борту'
+            },
+            'CPT': {
+                name: 'Carriage Paid To', desc: 'Продавец оплачивает доставку до согласованного места назначения.', transport: 'Любой',
+                seller: ['goods', 'export', 'freight'], buyer: ['insurance', 'import', 'delivery'],
+                risk: 'Первый перевозчик'
+            },
+            'CIP': {
+                name: 'Carriage & Insurance Paid To', desc: 'Как CPT, но продавец обязан обеспечить страхование с максимальным покрытием (А).', transport: 'Любой',
+                seller: ['goods', 'export', 'freight', 'insurance'], buyer: ['import', 'delivery'],
+                risk: 'Первый перевозчик'
+            },
+            'DAP': {
+                name: 'Delivered at Place', desc: 'Продавец доставляет товар в место назначения, готовым к выгрузке. Импорт на покупателе.', transport: 'Любой',
+                seller: ['goods', 'export', 'freight', 'insurance', 'delivery'], buyer: ['import'],
+                risk: 'В месте назначения'
+            },
+            'DPU': {
+                name: 'Delivered at Place Unloaded', desc: 'Продавец доставляет и выгружает товар в месте назначения. Импорт на покупателе.', transport: 'Любой',
+                seller: ['goods', 'export', 'freight', 'insurance', 'delivery'], buyer: ['import'],
+                risk: 'После выгрузки'
+            },
+            'DDP': {
+                name: 'Delivered Duty Paid', desc: 'Максимум обязательств продавца. Включает доставку, таможенную очистку и уплату пошлин.', transport: 'Любой',
+                seller: ['goods', 'export', 'freight', 'insurance', 'delivery', 'import'], buyer: [],
+                risk: 'После очистки'
+            }
+        };
+
+        const COST_ITEMS = {
+            'goods': (v, d) => v,
+            'export': (v, d) => v * 0.02 + 300,
+            'freight': (v, d) => Math.max(500, d * 0.2),
+            'insurance': (v, d) => v * 0.015,
+            'import': (v, d) => v * 0.15 + 500,
+            'delivery': (v, d) => 400
+        };
+
+        let map, markerA, markerB, routeLine;
+        let pointA = null, pointB = null;
+        let currentDistance = 0, currentGroup = 'F', currentIncoterm = 'FCA';
+        let geocodeTimeoutA, geocodeTimeoutB;
+
+        const CARGO_OPTIONS = [
+            { value: 10000, label: '$10k' },
+            { value: 100000, label: '$100k' },
+            { value: 1000000, label: '$1M' }
+        ];
+        let currentCargoValue = 100000;
+
+        const formatMoney = (amount) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount);
+
+        // API Геокодирования (Определение страны)
+        async function fetchCountry(lat, lng, elementId) {
+            const el = document.getElementById(elementId);
+            el.innerText = 'Определение...';
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=3&accept-language=ru`);
+                const data = await response.json();
+                el.innerText = data.address?.country || 'Международные воды';
+            } catch (error) {
+                el.innerText = 'Не удалось определить';
+            }
+        }
+
+        function setCargoValue(val) {
+            currentCargoValue = val;
+            document.getElementById('cargo-value-display').innerText = `$${new Intl.NumberFormat('en-US').format(val)}`;
+            
+            CARGO_OPTIONS.forEach(opt => {
+                const btn = document.getElementById(`cargo-btn-${opt.value}`);
+                if (btn) {
+                    if (opt.value === val) {
+                        btn.classList.add('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]');
+                        btn.classList.remove('text-ios-gray', 'hover:text-ios-text', 'text-ios-text', 'bg-white');
+                    } else {
+                        btn.classList.remove('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]', 'text-ios-text', 'bg-white');
+                        btn.classList.add('text-ios-gray', 'hover:text-ios-blue');
+                    }
+                }
+            });
+            if (pointA && pointB) calculateCosts();
+        }
+
+        function initUI() {
+            // Инициализация кнопок сумм
+            const cargoSelector = document.getElementById('cargo-selector');
+            CARGO_OPTIONS.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.id = `cargo-btn-${opt.value}`;
+                btn.innerText = opt.label;
+                btn.onclick = () => setCargoValue(opt.value);
+                btn.className = 'flex-1 h-full text-[13px] font-medium transition-all duration-200 z-10 relative flex items-center justify-center';
+                cargoSelector.appendChild(btn);
+            });
+            setCargoValue(100000);
+
+            // Инициализация групп Инкотермс
+            const groupSelector = document.getElementById('group-selector');
+            Object.keys(INCOTERMS_GROUPS).forEach(group => {
+                const btn = document.createElement('button');
+                btn.id = `group-btn-${group}`;
+                btn.innerText = `Группа ${group}`;
+                btn.onclick = () => selectGroup(group);
+                btn.className = 'flex-1 h-full text-[13px] font-medium transition-all duration-200 z-10 relative flex items-center justify-center';
+                groupSelector.appendChild(btn);
+            });
+            selectGroup('F'); // Дефолтная группа
+        }
+
+        function selectGroup(group) {
+            currentGroup = group;
+            
+            // Стилизация кнопок групп
+            Object.keys(INCOTERMS_GROUPS).forEach(g => {
+                const btn = document.getElementById(`group-btn-${g}`);
+                if (g === group) {
+                    btn.classList.add('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]');
+                    btn.classList.remove('text-ios-gray', 'hover:text-ios-blue', 'text-ios-text', 'bg-white');
+                } else {
+                    btn.classList.remove('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]', 'text-ios-text', 'bg-white');
+                    btn.classList.add('text-ios-gray', 'hover:text-ios-blue');
+                }
+            });
+
+            // Перестройка базисов внутри выбранной группы
+            const termSelector = document.getElementById('incoterms-selector');
+            termSelector.innerHTML = '';
+            INCOTERMS_GROUPS[group].forEach(term => {
+                const btn = document.createElement('button');
+                btn.id = `btn-${term}`;
+                btn.innerText = term;
+                btn.onclick = () => selectIncoterm(term);
+                btn.className = 'flex-1 h-full text-[13px] font-medium transition-all duration-200 z-10 relative flex items-center justify-center';
+                termSelector.appendChild(btn);
+            });
+
+            // Авто-выбор первого базиса в группе
+            selectIncoterm(INCOTERMS_GROUPS[group][0]);
+        }
+
+        function selectIncoterm(term) {
+            currentIncoterm = term;
+            
+            // Стилизация кнопок базисов
+            INCOTERMS_GROUPS[currentGroup].forEach(key => {
+                const btn = document.getElementById(`btn-${key}`);
+                if (key === term) {
+                    btn.classList.add('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]');
+                    btn.classList.remove('text-ios-gray', 'hover:text-ios-text', 'text-ios-text', 'bg-white');
+                } else {
+                    btn.classList.remove('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]', 'text-ios-text', 'bg-white');
+                    btn.classList.add('text-ios-gray', 'hover:text-ios-blue');
+                }
+            });
+            
+            // Обновление описания
+            const tData = INCOTERMS[term];
+            document.getElementById('incoterm-title').innerText = `${term} (${tData.name})`;
+            document.getElementById('incoterm-desc').innerText = tData.desc;
+            
+            const transportIcon = tData.transport === 'Морской' ? '<i class="fa-solid fa-ship"></i>' : '<i class="fa-solid fa-truck-fast"></i>';
+            document.getElementById('incoterm-transport').innerHTML = `${transportIcon} ${tData.transport}`;
+
+            if (pointA && pointB) calculateCosts();
+        }
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([48, 15], 3);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+                subdomains: 'abcd', maxZoom: 10
+            }).addTo(map);
+
+            const iconA = L.divIcon({ className: 'pulse-marker marker-seller', iconSize: [22, 22], iconAnchor: [11, 11] });
+            const iconB = L.divIcon({ className: 'pulse-marker marker-buyer', iconSize: [22, 22], iconAnchor: [11, 11] });
+
+            map.on('click', function(e) {
+                if (!pointA) {
+                    pointA = e.latlng;
+                    markerA = L.marker(pointA, {icon: iconA, draggable: true}).addTo(map);
+                    markerA.bindTooltip("Продавец", {permanent: true, direction: "top", className: "custom-tooltip tooltip-seller", offset: [0, -12]}).openTooltip();
+                    
+                    // Показываем блок стран и определяем страну А
+                    document.getElementById('route-hint').classList.add('hidden');
+                    document.getElementById('route-countries').classList.remove('hidden');
+                    fetchCountry(pointA.lat, pointA.lng, 'country-a-name');
+                    document.getElementById('country-b-name').innerText = 'Укажите точку на карте...';
+
+                    markerA.on('drag', function(event) {
+                        pointA = event.latlng;
+                        updateRouteDynamic();
+                        clearTimeout(geocodeTimeoutA);
+                        geocodeTimeoutA = setTimeout(() => fetchCountry(pointA.lat, pointA.lng, 'country-a-name'), 800);
+                    });
+                    
+                    const mobileReset = document.getElementById('mobile-reset-btn');
+                    if (mobileReset) {
+                        mobileReset.classList.remove('opacity-0', 'pointer-events-none');
+                        mobileReset.classList.add('opacity-100', 'pointer-events-auto');
+                    }
+                    
+                    const instr = document.getElementById('instruction-text');
+                    instr.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-ios-blue animate-pulse shrink-0 shadow-[0_0_8px_rgba(0,80,200,0.6)]"></span> Отметьте точку Покупателя';
+                } else if (!pointB) {
+                    pointB = e.latlng;
+                    markerB = L.marker(pointB, {icon: iconB, draggable: true}).addTo(map);
+                    markerB.bindTooltip("Покупатель", {permanent: true, direction: "top", className: "custom-tooltip tooltip-buyer", offset: [0, -12]}).openTooltip();
+                    
+                    // Определяем страну Б
+                    fetchCountry(pointB.lat, pointB.lng, 'country-b-name');
+
+                    markerB.on('drag', function(event) {
+                        pointB = event.latlng;
+                        updateRouteDynamic();
+                        clearTimeout(geocodeTimeoutB);
+                        geocodeTimeoutB = setTimeout(() => fetchCountry(pointB.lat, pointB.lng, 'country-b-name'), 800);
+                    });
+                    
+                    document.getElementById('instruction-overlay').style.opacity = '0';
+                    setTimeout(() => document.getElementById('instruction-overlay').style.display = 'none', 300);
+
+                    routeLine = L.polyline([pointA, pointB], {
+                        color: '#0050C8', weight: 3, dashArray: '8, 8', opacity: 0.5
+                    }).addTo(map);
+                    
+                    map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+
+                    currentDistance = (pointA.distanceTo(pointB) / 1000).toFixed(0);
+                    animateValue("distance-display", 0, parseInt(currentDistance), 800);
+
+                    document.getElementById('results-placeholder').classList.add('hidden');
+                    document.getElementById('results-content').classList.remove('hidden');
+
+                    calculateCosts();
+
+                    if (window.innerWidth < 1024) {
+                        setTimeout(() => {
+                            document.getElementById('calculator-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 500);
+                    }
+                }
+            });
+        }
+
+        function updateRouteDynamic() {
+            if (!pointA || !pointB || !routeLine) return;
+            routeLine.setLatLngs([pointA, pointB]);
+            currentDistance = (pointA.distanceTo(pointB) / 1000).toFixed(0);
+            document.getElementById('distance-display').innerText = new Intl.NumberFormat('en-US').format(currentDistance);
+            calculateCosts();
+        }
+
+        function resetMap() {
+            if (markerA) map.removeLayer(markerA);
+            if (markerB) map.removeLayer(markerB);
+            if (routeLine) map.removeLayer(routeLine);
+            
+            pointA = null; pointB = null; currentDistance = 0;
+            document.getElementById('distance-display').innerText = '0';
+            
+            // Сброс блока стран
+            document.getElementById('route-countries').classList.add('hidden');
+            document.getElementById('route-hint').classList.remove('hidden');
+            document.getElementById('country-a-name').innerText = 'Ожидание...';
+            document.getElementById('country-b-name').innerText = 'Ожидание...';
+            
+            const mobileReset = document.getElementById('mobile-reset-btn');
+            if (mobileReset) {
+                mobileReset.classList.add('opacity-0', 'pointer-events-none');
+                mobileReset.classList.remove('opacity-100', 'pointer-events-auto');
+            }
+            
+            const overlay = document.getElementById('instruction-overlay');
+            overlay.style.display = 'flex'; 
+            setTimeout(() => overlay.style.opacity = '1', 50);
+            document.getElementById('instruction-text').innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-seller animate-pulse shrink-0 shadow-[0_0_8px_rgba(255,59,48,0.6)]"></span> Отметьте точку Продавца';
+            
+            document.getElementById('results-placeholder').classList.remove('hidden');
+            document.getElementById('results-content').classList.add('hidden');
+
+            map.setView([48, 15], 3);
+
+            if (window.innerWidth < 1024) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function calculateCosts() {
+            if (!pointA || !pointB) return;
+
+            const cargoValue = currentCargoValue;
+            const dist = parseFloat(currentDistance);
+            const termData = INCOTERMS[currentIncoterm];
+
+            let sellerTotal = 0, buyerTotal = 0;
+
+            Object.keys(COST_ITEMS).forEach(itemKey => {
+                const cost = COST_ITEMS[itemKey](cargoValue, dist);
+                if (termData.seller.includes(itemKey)) sellerTotal += cost;
+                else if (termData.buyer.includes(itemKey)) buyerTotal += cost;
+            });
+
+            const totalDealCost = sellerTotal + buyerTotal;
+
+            document.getElementById('total-deal-cost').innerText = `$${formatMoney(totalDealCost)}`;
+            document.getElementById('seller-total').innerText = `$${formatMoney(sellerTotal)}`;
+            document.getElementById('buyer-total').innerText = `$${formatMoney(buyerTotal)}`;
+
+            const sellerPct = totalDealCost > 0 ? (sellerTotal / totalDealCost) * 100 : 50;
+            document.getElementById('seller-bar').style.width = `${sellerPct}%`;
+            document.getElementById('buyer-bar').style.width = `${100 - sellerPct}%`;
+
+            document.getElementById('risk-point').innerText = termData.risk;
+        }
+
+        function animateValue(id, start, end, duration) {
+            if (start === end) return;
+            var range = end - start;
+            var current = start;
+            var increment = end > start? 1 : -1;
+            var stepTime = Math.abs(Math.floor(duration / range));
+            if(stepTime < 5) stepTime = 5; 
+            var obj = document.getElementById(id);
+            var timer = setInterval(function() {
+                current += Math.ceil(range / (duration/stepTime));
+                if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+                    current = end;
+                    clearInterval(timer);
+                }
+                obj.innerHTML = new Intl.NumberFormat('en-US').format(current);
+            }, stepTime);
+        }
+
+        window.onload = () => {
+            initUI();
+            initMap();
+            
+            const splashText = document.getElementById('splash-text');
+            const splashScreen = document.getElementById('splash-screen');
+            const mainApp = document.getElementById('main-app');
+
+            setTimeout(() => {
+                splashText.classList.remove('opacity-0', 'translate-y-4');
+                splashText.classList.add('opacity-100', 'translate-y-0');
+            }, 300);
+
+            setTimeout(() => {
+                splashText.classList.remove('opacity-100', 'translate-y-0');
+                splashText.classList.add('opacity-0', '-translate-y-4');
+            }, 2500);
+
+            setTimeout(() => {
+                splashScreen.classList.add('opacity-0');
+                mainApp.classList.remove('opacity-0', 'pointer-events-none');
+                mainApp.classList.add('opacity-100');
+                
+                setTimeout(() => {
+                    map.invalidateSize();
+                    splashScreen.style.display = 'none';
+                }, 1000);
+            }, 3500);
+        };
+    </script>
+</body>
+</html>
