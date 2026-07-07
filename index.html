@@ -1240,10 +1240,17 @@ if (hasInsuranceRestriction) {
         }
 
         function resetMap() {
+            // Удаляем слои с карты
             if (markerA) map.removeLayer(markerA);
             if (markerB) map.removeLayer(markerB);
             if (markerTransit) map.removeLayer(markerTransit);
             if (routeLine) map.removeLayer(routeLine);
+            
+            // ВАЖНЫЙ ИСПРАВЛЕННЫЙ БЛОК: обнуляем ссылки на объекты маркеров в памяти
+            markerA = null;
+            markerB = null;
+            markerTransit = null;
+            routeLine = null;
             
             pointA = null; pointB = null; pointTransit = null; 
             countryAName = ''; countryBName = ''; countryTransitName = '';
