@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Smart Incoterms</title>
 
-    <link rel="icon" type="image/png" href="https://img.icons8.com/?size=100&id=112466&format=png&color=0050C8">
+    <link class="shrink-0" rel="icon" type="image/png" href="https://img.icons8.com/?size=100&id=112466&format=png&color=0050C8">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,7 +15,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <!-- Иконки -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link class="shrink-0" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <script>
         tailwind.config = {
@@ -47,6 +47,7 @@
                         'ios-segment': '0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04)',
                         'ios-card': '0 4px 20px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.02)',
                         'ios-float': '0 10px 40px rgba(0,0,0,0.1)',
+                        'ios-modal': '0 -10px 40px rgba(0,0,0,0.15)'
                     }
                 }
             }
@@ -59,7 +60,9 @@
             -moz-osx-font-smoothing: grayscale;
             -webkit-tap-highlight-color: transparent;
             padding-bottom: env(safe-area-inset-bottom);
+            overflow-y: scroll;
         }
+
         #map-container { position: relative; }
         #map-container:-webkit-full-screen { width: 100vw; height: 100vh; border-radius: 0; }
         #map-container:-moz-full-screen { width: 100vw; height: 100vh; border-radius: 0; }
@@ -71,9 +74,21 @@
         .leaflet-control-zoom { display: none !important; }
         
         .fade-in { animation: fadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .slide-up { animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1); }
+        
+        .fade-out { animation: fadeOut 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
         }
 
         .pulse-marker {
@@ -121,7 +136,28 @@
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
     </style>
 </head>
-<body class="text-ios-text font-sans box-border flex flex-col min-h-screen lg:h-screen lg:overflow-hidden pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+
+<body class="text-ios-text font-sans box-border flex flex-col min-h-screen pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+
+    <!-- ФИКСИРОВАННЫЙ ЗАГОЛОВОК -->
+    <header id="sticky-header" class="sticky top-0 z-[4000] w-full bg-ios-bg/95 backdrop-blur-md transition-transform duration-300 ease-in-out border-b border-transparent py-4 shrink-0">
+        <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div id="header-title-container" class="shrink-0">
+                <h1 class="text-[26px] sm:text-[30px] font-bold tracking-tight text-ios-blue leading-tight whitespace-nowrap">
+                    SMART INCOTERMS <span class="font-light text-ios-gray">2020</span>
+                </h1>
+            </div>
+            <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end shrink-0">
+                <div class="bg-ios-segment p-[2px] rounded-[11px] flex w-full md:w-[280px] h-[36px] relative shrink-0">
+                    <button id="mode-calc" onclick="switchPlatformMode('calc')" class="flex-1 py-1 text-[13px] font-semibold bg-white shadow-ios-segment rounded-[9px] text-ios-text transition-all duration-200">Калькулятор</button>
+                    <button id="mode-wizard" onclick="switchPlatformMode('wizard')" class="flex-1 py-1 text-[13px] font-medium text-ios-gray hover:text-ios-text transition-all duration-200">Умный опросник</button>
+                </div>
+                <button id="desktop-reset-btn" onclick="resetMap()" class="hidden lg:flex text-ios-blue hover:opacity-70 transition-all duration-300 items-center gap-1.5 text-[15px] font-medium bg-ios-tint px-4 py-2 rounded-full shrink-0">
+                    <span>Сбросить карту</span>
+                </button>
+            </div>
+        </div>
+    </header>
 
     <!-- Сплэш-экран -->
     <div id="splash-screen" class="fixed inset-0 z-[9999] bg-ios-bg flex items-center justify-center transition-opacity duration-1000">
@@ -131,33 +167,21 @@
     </div>
 
     <!-- Основной контент -->
-    <div id="main-app" class="opacity-0 pointer-events-none transition-opacity duration-700 ease-in-out flex-1 flex flex-col p-4 sm:p-6 lg:p-8 w-full max-w-[1400px] mx-auto">
+    <div id="main-app" class="opacity-0 pointer-events-none transition-opacity duration-700 ease-in-out flex-1 flex flex-col p-4 sm:p-6 lg:p-8 w-full max-w-[1400px] mx-auto relative">
 
-        <!-- Заголовок -->
-        <div class="mb-4 lg:mb-6 px-1 flex justify-between items-end pb-2 border-b border-ios-grayLight/50 lg:border-none">
-            <div>
-                <h1 class="text-[30px] font-bold tracking-tight text-ios-blue leading-tight">SMART INCOTERMS <span class="font-light text-ios-gray">2020</span></h1>
-            </div>
-            <button onclick="resetMap()" class="hidden lg:flex text-ios-blue hover:opacity-70 transition-opacity items-center gap-1.5 text-[17px] font-medium bg-ios-tint px-4 py-2 rounded-full">
-                <span>Сбросить карту</span>
-            </button>
-        </div>
-
-        <main class="flex-1 w-full grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-8 lg:min-h-0 pb-6 lg:pb-0">
+        <!-- РЕЖИМ 1: Интерактивный калькулятор -->
+        <main id="calculator-view" class="w-full grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-8 pb-8 items-start">
             
-            <!-- ЛЕВАЯ ЧАСТЬ: Карта и Баланс -->
-            <div class="flex flex-col gap-4 lg:gap-5 lg:h-full shrink-0">
+            <!-- ЛЕВАЯ ЧАСТЬ -->
+            <div id="left-column-calc" class="flex flex-col gap-4 lg:gap-5 sticky top-4 lg:top-8 z-20 w-full">
                 
-                <!-- Карта -->
-                <div id="map-container" class="relative h-[40vh] min-h-[300px] lg:flex-1 w-full rounded-[24px] shadow-ios-card bg-ios-card z-10 border border-black/5 overflow-hidden">
+                <div id="map-container" class="relative h-[40vh] min-h-[300px] lg:h-[50vh] w-full rounded-[24px] shadow-ios-card bg-ios-card z-10 border border-black/5 overflow-hidden">
                     <div id="map"></div>
                     
-                    <!-- Кнопка полноэкранного режима -->
                     <button id="fullscreen-btn" onclick="toggleFullscreen()" class="absolute top-4 left-4 z-[1000] glass-panel w-10 h-10 rounded-full shadow-ios-float text-ios-text flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95">
                         <i id="fullscreen-icon" class="fa-solid fa-expand text-[16px]"></i>
                     </button>
 
-                    <!-- Кнопка сброса (мобильная) -->
                     <button id="mobile-reset-btn" onclick="resetMap()" class="lg:hidden absolute top-4 right-4 z-[1000] glass-panel w-10 h-10 rounded-full shadow-ios-float text-ios-blue flex items-center justify-center transition-all duration-300 opacity-0 pointer-events-none active:scale-95">
                         <i class="fa-solid fa-arrow-rotate-left text-[16px]"></i>
                     </button>
@@ -170,27 +194,26 @@
                     </div>
                 </div>
 
-                <!-- Панель параметров -->
-                <div class="bg-ios-card p-5 lg:p-6 rounded-[24px] shadow-ios-card flex flex-col sm:flex-row gap-5 lg:gap-8 shrink-0 border border-black/5">
-                    
-                    <div class="flex-1 flex flex-col justify-center min-w-0">
-                        <label class="block text-[12px] font-medium text-ios-gray tracking-wide uppercase mb-1">Сумма контракта</label>
-                        <div class="flex items-center gap-1 mb-3">
-                            <span id="cargo-value-display" class="text-3xl lg:text-4xl leading-none font-bold tracking-tight text-ios-text transition-colors whitespace-nowrap pr-1">$100,000</span>
-                        </div>
-
-                        <!-- Выбор суммы + Своя сумма -->
-                        <div class="flex items-center gap-2 w-full h-[32px] lg:h-[36px]">
-                            <div class="bg-ios-segment p-[2px] rounded-[9px] flex flex-1 h-full relative" id="cargo-selector">
-                                <!-- Генерируется JS -->
+                <div class="bg-ios-card p-5 lg:p-6 rounded-[24px] shadow-ios-card flex flex-col sm:flex-row gap-5 lg:gap-8 border border-black/5">
+                    <div class="flex-1 flex flex-col justify-center min-w-0 py-1">
+                        <div class="flex justify-between items-start mb-2.5">
+                            <div class="min-w-0 flex-1">
+                                <label class="block text-[12px] font-medium text-ios-gray tracking-wide uppercase mb-1">Сумма контракта</label>
+                                <div class="flex items-center gap-1 pr-2 w-full">
+                                    <span class="text-2xl lg:text-3xl font-bold text-ios-gray select-none leading-none pb-[2px]">$</span>
+                                    <input type="number" id="cargo-input" value="100000" placeholder="0" class="text-3xl lg:text-4xl font-bold tracking-tight text-ios-text bg-transparent border-none p-0 outline-none focus:ring-0 w-full leading-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" oninput="handleCargoInputChange(this.value)">
+                                </div>
                             </div>
-                            <input type="number" id="custom-cargo-input" placeholder="Своя" class="h-full w-[70px] sm:w-[90px] bg-ios-segment rounded-[9px] px-2 text-[13px] font-medium text-ios-text outline-none focus:ring-2 focus:ring-ios-blue transition-all text-center" onchange="handleCustomCargo(this.value)" onkeyup="if(event.key === 'Enter') { this.blur(); handleCustomCargo(this.value); }">
+                            <div class="w-10 h-10 bg-ios-tint rounded-full flex items-center justify-center text-ios-blue shrink-0 ml-2">
+                                <i class="fa-solid fa-wallet"></i>
+                            </div>
                         </div>
+                        <p class="text-[12px] text-ios-gray font-medium leading-tight">Введите сумму сделки для автоматического расчета</p>
                     </div>
 
                     <div class="w-px bg-ios-grayLight hidden sm:block"></div>
 
-                    <div class="flex-1 flex flex-col justify-center min-w-0">
+                    <div class="flex-1 flex flex-col justify-between min-w-0">
                         <div class="flex justify-between items-start mb-2">
                             <div class="min-w-0">
                                 <label class="block text-[12px] font-medium text-ios-gray tracking-wide uppercase mb-1">Маршрут</label>
@@ -204,161 +227,209 @@
                             </div>
                         </div>
                         
-                        <!-- Вывод стран маршрута -->
-                        <div class="min-h-[40px] flex flex-col justify-center w-full">
-                            <div id="route-countries" class="hidden flex flex-col gap-1 fade-in w-full">
-                                <div class="flex items-center gap-2 w-full">
-                                    <div class="w-2 h-2 rounded-full bg-seller shrink-0"></div>
-                                    <span class="text-[13px] text-ios-gray shrink-0">Откуда:</span>
-                                    <span id="country-a-name" class="text-[14px] font-semibold text-ios-text truncate min-w-0">Ожидание...</span>
+                        <div class="min-h-[40px] flex flex-col justify-center w-full gap-2">
+                            <div class="flex flex-col gap-2 w-full">
+                                <div class="relative flex items-center bg-ios-bg px-3 py-1.5 rounded-xl border border-black/5 focus-within:border-ios-blue/30 transition-all">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-seller shrink-0 mr-2"></div>
+                                    <input type="text" id="address-a-input" placeholder="Откуда (город, порт, страна)" class="bg-transparent text-[13.5px] font-semibold text-ios-text outline-none w-full placeholder-ios-gray/70" onkeydown="handleAddressKeyDown(event, 'A')">
+                                    <button onclick="searchAddress('A')" class="text-ios-blue hover:opacity-75 transition-opacity ml-1.5 shrink-0">
+                                        <i class="fa-solid fa-magnifying-glass text-[13px]"></i>
+                                    </button>
                                 </div>
-                                <div class="flex items-center gap-2 w-full">
-                                    <div class="w-2 h-2 rounded-full bg-buyer shrink-0"></div>
-                                    <span class="text-[13px] text-ios-gray shrink-0">Куда:</span>
-                                    <span id="country-b-name" class="text-[14px] font-semibold text-ios-text truncate min-w-0">Ожидание...</span>
+                                <div class="relative flex items-center bg-ios-bg px-3 py-1.5 rounded-xl border border-black/5 focus-within:border-ios-blue/30 transition-all">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-buyer shrink-0 mr-2"></div>
+                                    <input type="text" id="address-b-input" placeholder="Куда (город, порт, страна)" class="bg-transparent text-[13.5px] font-semibold text-ios-text outline-none w-full placeholder-ios-gray/70" onkeydown="handleAddressKeyDown(event, 'B')">
+                                    <button onclick="searchAddress('B')" class="text-ios-blue hover:opacity-75 transition-opacity ml-1.5 shrink-0">
+                                        <i class="fa-solid fa-magnifying-glass text-[13px]"></i>
+                                    </button>
                                 </div>
                             </div>
-                            <p id="route-hint" class="text-[12px] text-ios-gray font-medium leading-tight hidden sm:block text-balance w-full">Маркеры можно свободно перетаскивать по карте</p>
-                            
-                            <!-- Кнопка добавления промежуточной точки -->
-                            <button id="add-transit-btn" onclick="enableTransitMode()" class="hidden w-full mt-2 py-1.5 bg-ios-orange/10 text-ios-orange text-[13px] font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all active:scale-95 hover:bg-ios-orange/20">
+                            <button id="add-transit-btn" onclick="enableTransitMode()" class="hidden w-full mt-1 py-1.5 bg-ios-orange/10 text-ios-orange text-[13px] font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all active:scale-95 hover:bg-ios-orange/20">
                                 <i class="fa-solid fa-plus"></i> Промежуточная точка
                             </button>
                         </div>
                     </div>
                 </div>
-
             </div>
 
-            <!-- ПРАВАЯ ЧАСТЬ: Калькулятор -->
-            <div id="calculator-section" class="bg-ios-card rounded-[24px] shadow-ios-card p-5 lg:p-8 flex flex-col relative lg:overflow-y-auto mt-1 lg:mt-0 border border-black/5">
+            <!-- ПРАВАЯ ЧАСТЬ -->
+            <div id="calculator-section" class="bg-ios-card rounded-[24px] shadow-ios-card p-5 lg:p-8 flex flex-col relative border border-black/5 w-full">
                 
                 <h2 class="text-[20px] font-bold tracking-tight text-ios-text mb-4">Условия поставки</h2>
                 
-                <div class="mb-6 flex flex-col gap-2.5">
-                    <!-- Выбор группы -->
-                    <div class="bg-ios-segment p-[2px] rounded-[9px] flex w-full h-[32px] lg:h-[36px] relative" id="group-selector"></div>
-                    <!-- Выбор базиса -->
-                    <div class="bg-ios-segment p-[2px] rounded-[9px] flex w-full h-[32px] lg:h-[36px] relative" id="incoterms-selector"></div>
-                    
-                    <div class="mt-3 bg-ios-bg rounded-xl p-3 flex flex-col gap-1.5">
-                        <div class="flex items-center justify-between">
-                            <p id="incoterm-title" class="text-[16px] font-bold text-ios-text"></p>
-                            <span id="incoterm-transport" class="text-[12px] px-2 py-1 bg-ios-grayLight/60 rounded text-ios-gray font-semibold flex items-center gap-1.5"></span>
-                        </div>
-                        <p id="incoterm-desc" class="text-[13px] text-ios-gray leading-snug"></p>
-                    </div>
+                <div class="bg-ios-bg p-1 rounded-[11px] flex w-full mb-4 relative shrink-0">
+                    <button id="trans-any" onclick="setTransportMode('any')" class="flex-1 py-1.5 text-[13px] font-semibold bg-white shadow-ios-segment rounded-[9px] text-ios-text transition-all duration-200"><i class="fa-solid fa-truck mr-1.5"></i>Любой / Авто</button>
+                    <button id="trans-sea" onclick="setTransportMode('sea')" class="flex-1 py-1.5 text-[13px] font-medium text-ios-gray hover:text-ios-text transition-all duration-200"><i class="fa-solid fa-ship mr-1.5"></i>Только Море</button>
                 </div>
 
-                <!-- Заглушка -->
-                <div id="results-placeholder" class="flex-1 flex flex-col items-center justify-center text-center opacity-40 py-8 lg:py-0">
+                <div class="mb-5 flex flex-col gap-4 shrink-0">
+                    <div id="incoterms-grid-selector" class="flex flex-wrap gap-1.5 justify-start"></div>
+                    <div id="incoterm-minimal-desc" class="text-[13px] text-ios-text/80 leading-relaxed border-l-2 border-ios-blue/30 pl-3 py-0.5 transition-all duration-300"></div>
+                </div>
+
+                <div id="results-placeholder" class="flex-1 flex flex-col items-center justify-center text-center opacity-40 py-8">
                     <i class="fa-solid fa-map-location-dot text-[48px] text-ios-gray mb-4"></i>
-                    <h3 class="text-[17px] font-semibold text-ios-text max-w-[250px]">Постройте маршрут на карте</h3>
+                    <h3 class="text-[17px] font-semibold text-ios-text max-w-[250px]">Постройте маршрут на карте или введите адреса</h3>
                 </div>
 
-                <!-- Результаты -->
-                <div id="results-content" class="hidden flex-1 flex flex-col justify-center fade-in">
+                <div id="results-content" class="hidden flex-1 flex flex-col fade-in">
                     
-                    <!-- Визуализация долей -->
-                    <div class="mb-8">
-                        <div class="flex justify-between items-end mb-3">
-                            <div>
-                                <div class="flex items-center gap-1.5 mb-0.5">
-                                    <div class="w-2 h-2 rounded-full bg-seller"></div>
-                                    <p class="text-[13px] font-medium text-ios-gray">Продавец</p>
+                    <div class="mb-6 shrink-0">
+                        <div class="flex justify-between items-end mb-3 gap-2">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-1.5 mb-1">
+                                    <div class="w-2 h-2 rounded-full bg-seller shrink-0"></div>
+                                    <p class="text-[12px] font-medium text-ios-gray truncate">Продавец</p>
                                 </div>
-                                <p id="seller-total" class="text-[28px] font-bold tracking-tight text-ios-text leading-none">$0</p>
+                                <p id="seller-total" class="text-[18px] sm:text-[20px] font-bold text-ios-text/60 leading-none">$0</p>
                             </div>
-                            <div class="text-right">
-                                <div class="flex items-center justify-end gap-1.5 mb-0.5">
-                                    <p class="text-[13px] font-medium text-ios-gray">Покупатель</p>
-                                    <div class="w-2 h-2 rounded-full bg-buyer"></div>
+                            <div class="text-center px-3 shrink-0">
+                                <p class="text-[10px] font-bold text-ios-gray uppercase tracking-wider mb-1">Итоговая стоимость</p>
+                                <p id="total-deal-cost" class="text-[26px] sm:text-[30px] font-black tracking-tight text-ios-blue leading-none">$0</p>
+                            </div>
+                            <div class="flex-1 text-right min-w-0">
+                                <div class="flex items-center justify-end gap-1.5 mb-1">
+                                    <p class="text-[12px] font-medium text-ios-gray truncate">Покупатель</p>
+                                    <div class="w-2 h-2 rounded-full bg-buyer shrink-0"></div>
                                 </div>
-                                <p id="buyer-total" class="text-[28px] font-bold tracking-tight text-ios-text leading-none">$0</p>
+                                <p id="buyer-total" class="text-[18px] sm:text-[20px] font-bold text-ios-text/60 leading-none">$0</p>
                             </div>
                         </div>
-                        
-                        <div class="h-[12px] bg-ios-grayLight rounded-full overflow-hidden flex relative shadow-inner">
-                            <div id="seller-bar" class="h-full bg-seller transition-all duration-700 ease-in-out border-r-2 border-white"></div>
-                            <div id="buyer-bar" class="h-full bg-buyer transition-all duration-700 ease-in-out"></div>
+                        <div class="h-[4px] mt-1.5 bg-ios-grayLight/40 rounded-full overflow-hidden flex relative">
+                            <div id="seller-bar" class="h-full bg-seller/90 transition-all duration-700 ease-in-out border-r border-white"></div>
+                            <div id="buyer-bar" class="h-full bg-buyer/90 transition-all duration-700 ease-in-out"></div>
                         </div>
                     </div>
 
-                    <!-- Переход Рисков -->
-                    <div class="bg-ios-bg rounded-[20px] p-4 lg:p-5 flex items-start gap-3.5 relative overflow-hidden mb-8 lg:mb-auto">
-                        <div class="w-10 h-10 rounded-[10px] bg-ios-orange shadow-sm flex items-center justify-center flex-shrink-0">
-                            <i class="fa-solid fa-triangle-exclamation text-white text-[18px]"></i>
-                        </div>
-                        <div class="pt-0.5">
-                            <h3 class="text-[15px] font-semibold text-ios-text tracking-tight mb-0.5">Момент риска</h3>
-                            <p id="risk-point" class="text-[14px] text-ios-gray leading-snug"></p>
+                    <div class="border-t border-b border-ios-grayLight/60 py-1 mb-5 shrink-0">
+                        <button onclick="toggleRisksDropdown()" class="w-full flex items-center justify-between py-2.5 bg-transparent hover:opacity-75 transition-opacity text-left focus:outline-none">
+                            <span class="text-[13.5px] font-semibold text-ios-text flex items-center gap-2">
+                                <i class="fa-solid fa-scale-balanced text-ios-blue text-[14px]"></i>
+                                Юридический анализ и риски базиса
+                            </span>
+                            <i id="risks-chevron" class="fa-solid fa-chevron-down text-ios-gray text-[12px] transition-transform duration-300"></i>
+                        </button>
+                        <div id="risks-dropdown-content" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+                            <div id="risks-grid" class="pt-2 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white">
+                                <div class="bg-ios-bg/60 p-3 rounded-xl border border-black/5">
+                                    <div class="text-[10px] font-bold text-ios-gray uppercase mb-1 tracking-wider"><i class="fa-solid fa-scale-balanced mr-1"></i>Нормативные</div>
+                                    <div id="risk-normative" class="text-[12.5px] leading-snug text-ios-text font-medium"></div>
+                                </div>
+                                <div class="bg-ios-bg/60 p-3 rounded-xl border border-black/5">
+                                    <div class="text-[10px] font-bold text-ios-gray uppercase mb-1 tracking-wider"><i class="fa-solid fa-gavel mr-1"></i>Судебная практика</div>
+                                    <div id="risk-practice" class="text-[12.5px] leading-snug text-ios-text font-medium"></div>
+                                </div>
+                                <div class="bg-ios-bg/60 p-3 rounded-xl border border-black/5">
+                                    <div class="text-[10px] font-bold text-ios-gray uppercase mb-1 tracking-wider"><i class="fa-solid fa-chess-knight mr-1"></i>Тактика сделки</div>
+                                    <div id="risk-tactic" class="text-[12.5px] leading-snug text-ios-text font-medium"></div>
+                                </div>
+                                <div class="bg-ios-bg/60 p-3 rounded-xl border border-black/5">
+                                    <div class="text-[10px] font-bold text-ios-gray uppercase mb-1 tracking-wider"><i class="fa-solid fa-shield-halved mr-1"></i>Страхование</div>
+                                    <div id="risk-insurance" class="text-[12.5px] leading-snug text-ios-text font-medium"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Итог -->
-                    <div class="pt-5 border-t border-ios-grayLight/60 flex items-center justify-between">
-                        <span class="text-[17px] font-semibold text-ios-text">Итоговая стоимость</span>
-                        <span id="total-deal-cost" class="text-[32px] font-bold tracking-tight text-ios-text pr-1">$0</span>
-                    </div>
+                    <!-- Контейнер для Smart Alerts (Уровни 1, 2, 3) -->
+                    <div id="alerts-container" class="flex flex-col gap-3 mb-6 empty:hidden shrink-0"></div>
+
+                    <button onclick="openContractModal()" class="w-full py-3.5 bg-ios-blue text-white text-[15px] font-semibold rounded-xl shadow-ios-segment transition-all active:scale-95 hover:bg-ios-blue/90 flex justify-center items-center gap-2 shrink-0">
+                        <i class="fa-solid fa-file-signature"></i> Сгенерировать условия контракта
+                    </button>
                 </div>
             </div>
         </main>
+
+        <!-- РЕЖИМ 2: Умный опросник (Wizard) -->
+        <div id="wizard-view" class="hidden w-full max-w-[700px] mx-auto bg-ios-card rounded-[24px] shadow-ios-card p-6 lg:p-8 border border-black/5 mb-8">
+            <div id="wizard-step-container" class="min-h-[280px] flex flex-col justify-center"></div>
+            <div class="flex justify-between items-center mt-8 pt-5 border-t border-ios-grayLight/50 shrink-0">
+                <button id="wizard-prev-btn" onclick="wizardPrev()" class="px-5 py-2.5 rounded-xl bg-ios-segment text-ios-text text-[14px] font-semibold transition-all hover:bg-ios-grayLight active:scale-95 opacity-0 pointer-events-none">Назад</button>
+                <div id="wizard-progress-dots" class="flex gap-2"></div>
+                <button id="wizard-next-btn" onclick="wizardNext()" class="px-6 py-2.5 rounded-xl bg-ios-blue text-white text-[14px] font-semibold transition-all hover:bg-ios-blue/90 active:scale-95">Далее</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Модальное окно Контракта -->
+    <div id="contract-modal" class="fixed inset-0 z-[10000] hidden items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
+        <div id="contract-backdrop" class="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 transition-opacity duration-300 pointer-events-auto" onclick="closeContractModal()"></div>
+        <div id="contract-content" class="bg-ios-card w-full sm:w-[500px] rounded-t-[24px] sm:rounded-[24px] shadow-ios-modal flex flex-col pointer-events-auto relative z-10 opacity-0 translate-y-full sm:translate-y-10 sm:scale-95 transition-all duration-300 ease-out max-h-[85vh] sm:max-h-[90vh]">
+            <div class="p-5 border-b border-ios-grayLight/50 flex justify-between items-center shrink-0">
+                <h3 class="text-[18px] font-bold text-ios-text">Документы для контракта</h3>
+                <button onclick="closeContractModal()" class="w-8 h-8 bg-ios-grayLight/50 rounded-full flex items-center justify-center text-ios-gray hover:bg-ios-grayLight transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-5 overflow-y-auto">
+                <div class="mb-5">
+                    <div class="text-[12px] font-bold text-ios-gray uppercase mb-2 tracking-wider">Выбранный базис</div>
+                    <div id="modal-incoterm-title" class="text-[16px] font-bold text-ios-blue bg-ios-tint p-3 rounded-xl border border-ios-blue/10">FCA (Free Carrier)</div>
+                </div>
+                <div>
+                    <div class="text-[12px] font-bold text-ios-gray uppercase mb-2 tracking-wider">Арбитражная оговорка (Смарт-шаблон)</div>
+                    <div class="relative">
+                        <textarea id="modal-clause" readonly class="w-full bg-ios-bg border border-black/5 rounded-xl p-4 text-[13px] text-ios-gray leading-relaxed h-[120px] resize-none focus:outline-none"></textarea>
+                        <button onclick="copyClause()" class="absolute top-2 right-2 p-2 text-ios-blue hover:text-ios-blue/70 transition-colors">
+                            <i class="fa-regular fa-copy text-[16px]"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно Предупреждения -->
+    <div id="warning-modal" class="fixed inset-0 z-[10000] hidden items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
+        <div id="warning-backdrop" class="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 transition-opacity duration-300 pointer-events-auto" onclick="closeWarningModal()"></div>
+        <div id="warning-content" class="bg-ios-card w-full sm:w-[420px] rounded-t-[24px] sm:rounded-[24px] shadow-ios-modal flex flex-col pointer-events-auto relative z-10 opacity-0 translate-y-full sm:translate-y-10 sm:scale-95 transition-all duration-300 ease-out">
+            <div class="p-5 border-b border-ios-grayLight/50 flex justify-between items-center shrink-0">
+                <h3 class="text-[18px] font-bold text-ios-red flex items-center gap-2"><i class="fa-solid fa-circle-info"></i> Базис недоступен</h3>
+                <button onclick="closeWarningModal()" class="w-8 h-8 bg-ios-grayLight/50 rounded-full flex items-center justify-center text-ios-gray hover:bg-ios-grayLight transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <p id="warning-text" class="text-[14px] text-ios-text font-medium leading-relaxed"></p>
+                <button onclick="closeWarningModal()" class="w-full mt-6 py-3 bg-ios-blue text-white font-semibold rounded-xl shadow-ios-segment hover:bg-ios-blue/90 transition-colors">Понятно</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // --- ДАННЫЕ ИНКОТЕРМС ---
-        const INCOTERMS_GROUPS = {
-            'E': ['EXW'],
-            'F': ['FCA', 'FAS', 'FOB'],
-            'C': ['CFR', 'CIF', 'CPT', 'CIP'],
-            'D': ['DAP', 'DPU', 'DDP']
-        };
+        // --- БД ОГРАНИЧЕНИЙ И БАРЬЕРОВ (УРОВЕНЬ 2) ---
+        const COUNTRIES_EAEU = ['Россия', 'Беларусь', 'Казахстан', 'Армения', 'Кыргызстан', 'Russia', 'Belarus', 'Kazakhstan', 'Armenia', 'Kyrgyzstan'];
+        const COUNTRIES_EU = ['Австрия', 'Бельгия', 'Болгария', 'Венгрия', 'Германия', 'Греция', 'Дания', 'Ирландия', 'Испания', 'Италия', 'Кипр', 'Латвия', 'Литва', 'Люксембург', 'Мальта', 'Нидерланды', 'Польша', 'Португалия', 'Румыния', 'Словакия', 'Словения', 'Финляндия', 'Франция', 'Хорватия', 'Чехия', 'Швеция', 'Эстония', 'Austria', 'Belgium', 'Bulgaria', 'Hungary', 'Germany', 'Greece', 'Denmark', 'Ireland', 'Spain', 'Italy', 'Cyprus', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Finland', 'France', 'Croatia', 'Czechia', 'Sweden', 'Estonia'];
+
+        const RESTRICTIONS = {
+    DDP_PROHIBITED: [...COUNTRIES_EAEU, ...COUNTRIES_EU, 'Бразилия', 'Brazil', 'Украина', 'Ukraine', 'Марокко', 'Morocco', 'Великобритания', 'United Kingdom', 'Турция', 'Turkey', 'Панама', 'Panama', 'Колумбия', 'Colombia', 'Соединенное Королевство'],
+    EXW_PROHIBITED: [
+        ...COUNTRIES_EU, 
+        'Бразилия', 'Brazil', 
+        'Марокко', 'Morocco', 
+        'Великобритания', 'United Kingdom', 'Соединенное Королевство',
+        'США', 'USA', 'Соединенные Штаты', 'United States', 'Соединённые Штаты Америки', 'United States of America'
+    ],
+    INSURANCE_RESTRICTED: [
+        'Албания', 'Алжир', 'Ангола', 'Аргентина', 'Азербайджан', 'Бахрейн', 'Бангладеш', 'Боливия', 'Бразилия', 'Китай', 'Колумбия', 'Коста-Рика', 'Доминиканская Республика', 'Эквадор', 'Сальвадор', 'Эфиопия', 'Гана', 'Гондурас', 'Индия', 'Индонезия', 'Ирак', 'Израиль', 'Кот-д\'Ивуар', 'Казахстан', 'Кения', 'Косово', 'Кувейт', 'Ливан', 'Малайзия', 'Мексика', 'Молдова', 'Монголия', 'Черногория', 'Марокко', 'Мьянма', 'Непал', 'Новая Зеландия', 'Нигерия', 'Оман', 'Пакистан', 'Перу', 'Филиппины', 'Катар', 'Россия', 'Руанда', 'Саудовская Аравия', 'Сенегал', 'Сейшелы', 'Сингапур', 'ЮАР', 'Тайвань', 'Таджикистан', 'Танзания', 'Таиланд', 'Того', 'Тунис', 'Украина', 'ОАЭ', 'Иордания',
+        'Albania', 'Algeria', 'Angola', 'Argentina', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Bolivia', 'Brazil', 'China', 'Colombia', 'Costa Rica', 'Dominican Republic', 'Ecuador', 'El Salvador', 'Ethiopia', 'Ghana', 'Honduras', 'India', 'Indonesia', 'Iraq', 'Israel', 'Ivory Coast', 'Kazakhstan', 'Kenya', 'Kosovo', 'Kuwait', 'Lebanon', 'Malaysia', 'Mexico', 'Moldova', 'Mongolia', 'Montenegro', 'Morocco', 'Myanmar', 'Nepal', 'New Zealand', 'Nigeria', 'Oman', 'Pakistan', 'Peru', 'Philippines', 'Qatar', 'Russia', 'Rwanda', 'Saudi Arabia', 'Senegal', 'Seychelles', 'Singapore', 'South Africa', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Togo', 'Tunisia', 'Ukraine', 'United Arab Emirates', 'Jordan', 'Российская Федерация', 'Russian Federation', 'Китайская Народная Республика', 'PRC'
+    ]
+};
 
         const INCOTERMS = {
-            'EXW': {
-                name: 'Ex Works', desc: 'Продавец предоставляет товар на своем предприятии. Вся логистика и таможня — на покупателе.', transport: 'Любой',
-                seller: ['goods'], buyer: ['export', 'freight', 'insurance', 'import', 'delivery'], risk: 'Склад продавца'
-            },
-            'FCA': {
-                name: 'Free Carrier', desc: 'Продавец выполняет экспортную очистку и передает товар перевозчику покупателя.', transport: 'Любой',
-                seller: ['goods', 'export'], buyer: ['freight', 'insurance', 'import', 'delivery'], risk: 'Передача перевозчику'
-            },
-            'FAS': {
-                name: 'Free Alongside Ship', desc: 'Продавец доставляет товар к борту судна. Применяется только для морских перевозок.', transport: 'Морской',
-                seller: ['goods', 'export'], buyer: ['freight', 'insurance', 'import', 'delivery'], risk: 'Вдоль борта'
-            },
-            'FOB': {
-                name: 'Free On Board', desc: 'Продавец загружает товар на борт судна. Применяется только для морских перевозок.', transport: 'Морской',
-                seller: ['goods', 'export'], buyer: ['freight', 'insurance', 'import', 'delivery'], risk: 'На борту'
-            },
-            'CFR': {
-                name: 'Cost and Freight', desc: 'Продавец оплачивает фрахт до порта назначения, но риск переходит после погрузки.', transport: 'Морской',
-                seller: ['goods', 'export', 'freight'], buyer: ['insurance', 'import', 'delivery'], risk: 'На борту'
-            },
-            'CIF': {
-                name: 'Cost, Insurance & Freight', desc: 'Как CFR, но продавец обязан обеспечить базовое морское страхование (С).', transport: 'Морской',
-                seller: ['goods', 'export', 'freight', 'insurance'], buyer: ['import', 'delivery'], risk: 'На борту'
-            },
-            'CPT': {
-                name: 'Carriage Paid To', desc: 'Продавец оплачивает доставку до согласованного места назначения.', transport: 'Любой',
-                seller: ['goods', 'export', 'freight'], buyer: ['insurance', 'import', 'delivery'], risk: 'Первый перевозчик'
-            },
-            'CIP': {
-                name: 'Carriage & Insurance Paid To', desc: 'Как CPT, но продавец обязан обеспечить страхование с максимальным покрытием (А).', transport: 'Любой',
-                seller: ['goods', 'export', 'freight', 'insurance'], buyer: ['import', 'delivery'], risk: 'Первый перевозчик'
-            },
-            'DAP': {
-                name: 'Delivered at Place', desc: 'Продавец доставляет товар в место назначения, готовым к выгрузке. Импорт на покупателе.', transport: 'Любой',
-                seller: ['goods', 'export', 'freight', 'insurance', 'delivery'], buyer: ['import'], risk: 'В месте назначения'
-            },
-            'DPU': {
-                name: 'Delivered at Place Unloaded', desc: 'Продавец доставляет и выгружает товар в месте назначения. Импорт на покупателе.', transport: 'Любой',
-                seller: ['goods', 'export', 'freight', 'insurance', 'delivery'], buyer: ['import'], risk: 'После выгрузки'
-            },
-            'DDP': {
-                name: 'Delivered Duty Paid', desc: 'Максимум обязательств продавца. Включает доставку, таможенную очистку и уплату пошлин.', transport: 'Любой',
-                seller: ['goods', 'export', 'freight', 'insurance', 'delivery', 'import'], buyer: [], risk: 'После очистки'
-            }
+            'EXW': { name: 'Ex Works', desc: 'Продавец предоставляет товар на своем предприятии. Вся логистика и таможня — на покупателе.', transport: 'Любой', isMaritime: false, seller: ['goods'], buyer: ['export', 'freight', 'insurance', 'import', 'delivery'], risk: 'Склад продавца', analysis: { normative: 'Запрещен для экспорта из ЕС без наличия у покупателя европейского EORI.', practice: 'Частые споры о том, кто фактически осуществлял погрузку. По умолчанию это риск покупателя.', tactic: 'Опасный базис при ВЭД. Если продавец грузит сам, выбирайте FCA.', insurance: 'Никто не обязан страховать по умолчанию.' } },
+            'FCA': { name: 'Free Carrier', desc: 'Продавец выполняет экспортную очистку и передает товар перевозчику покупателя.', transport: 'Любой', isMaritime: false, seller: ['goods', 'export'], buyer: ['freight', 'insurance', 'import', 'delivery'], risk: 'Передача перевозчику', analysis: { normative: 'Универсальный и самый рекомендуемый ICC базис для контейнеров.', practice: 'Суды РФ требуют точного указания Инкотермс 2020 для применения новых правил коносамента.', tactic: 'Пропишите в контракте опцию выдачи бортового коносамента продавцу для банка.', insurance: 'Страхование — право, а не обязанность покупателя.' } },
+            'FAS': { name: 'Free Alongside Ship', desc: 'Продавец доставляет товар к борту судна. Применяется только для морских перевозок.', transport: 'Морской', isMaritime: true, seller: ['goods', 'export'], buyer: ['freight', 'insurance', 'import', 'delivery'], risk: 'Вдоль борта', analysis: { normative: 'Применяется исключительно для водного транспорта.', practice: 'Сложности с определением момента "вдоль борта" в современных портах.', tactic: 'Идеален для навалочных/насыпных грузов (зерно, руда). Не подходит для контейнеров.', insurance: 'Покупатель организует страховку с момента размещения вдоль судна.' } },
+            'FOB': { name: 'Free On Board', desc: 'Продавец загружает товар на борт судна. Применяется только для морских перевозок.', transport: 'Морской', isMaritime: true, seller: ['goods', 'export'], buyer: ['freight', 'insurance', 'import', 'delivery'], risk: 'На борту', analysis: { normative: 'Самый частый базис для моря, но исторически устаревающий для контейнеров.', practice: 'Часто путают с FCA. Риск переходит не в порту, а именно при погрузке на судно.', tactic: 'Откажитесь от FOB для контейнеров в пользу FCA, чтобы избежать рисков терминала.', insurance: 'Риск гибели на терминале до погрузки несет продавец.' } },
+            'CFR': { name: 'Cost and Freight', desc: 'Продавец оплачивает фрахт до порта назначения, но риск переходит после погрузки.', transport: 'Морской', isMaritime: true, seller: ['goods', 'export', 'freight'], buyer: ['insurance', 'import', 'delivery'], risk: 'На борту', analysis: { normative: 'Расходы и риски переходят в разных местах (риск - при отгрузке, расходы - в порту назначения).', practice: 'Покупатели часто ошибочно думают, что риск гибели в море лежит на продавце.', tactic: 'Покупателю жизненно важно купить страховку до выхода судна.', insurance: 'Никто не обязан страховать по контракту. Высокий риск.' } },
+            'CIF': { name: 'Cost, Insurance & Freight', desc: 'Как CFR, но продавец обязан обеспечить базовое морское страхование (С).', transport: 'Морской', isMaritime: true, seller: ['goods', 'export', 'freight', 'insurance'], buyer: ['import', 'delivery'], risk: 'На борту', analysis: { normative: 'Правила 2020 сохранили покрытие минимум категории "С" (базовое).', practice: 'Покрытие "С" защищает только от крупных катастроф, но не от намокания/кражи.', tactic: 'Если груз дорогой, требуйте в контракте страховку категории "А" (от всех рисков).', insurance: 'Продавец обязан застраховать груз на 110% в пользу покупателя.' } },
+            'CPT': { name: 'Carriage Paid To', desc: 'Продавец оплачивает доставку до согласованного места назначения.', transport: 'Любой', isMaritime: false, seller: ['goods', 'export', 'freight'], buyer: ['insurance', 'import', 'delivery'], risk: 'Первый перевозчик', analysis: { normative: 'Аналог CFR для любого транспорта. Риск и расходы разделены.', practice: 'Особое внимание моменту передачи "первому перевозчику", если их несколько.', tactic: 'Идеален для авиаперевозок и сборных грузов.', insurance: 'Нет обязательного страхования.' } },
+            'CIP': { name: 'Carriage & Insurance Paid To', desc: 'Как CPT, но продавец обязан обеспечить страхование с максимальным покрытием (А).', transport: 'Любой', isMaritime: false, seller: ['goods', 'export', 'freight', 'insurance'], buyer: ['import', 'delivery'], risk: 'Первый перевозчик', analysis: { normative: 'Важное отличие версии 2020: теперь обязательна максимальная страховка (ICC A).', practice: 'Защищает покупателя лучше, чем CIF, так как требует страховки от всех рисков.', tactic: 'Отличный выбор для торговли дорогостоящим оборудованием.', insurance: 'Обязательное страхование продавцом по категории А (максимум).' } },
+            'DAP': { name: 'Delivered at Place', desc: 'Продавец доставляет товар в место назначения, готовым к выгрузке. Импорт на покупателе.', transport: 'Любой', isMaritime: false, seller: ['goods', 'export', 'freight', 'insurance', 'delivery'], buyer: ['import'], risk: 'В месте назначения', analysis: { normative: 'Золотая середина для доставки "до двери" без таможенных рисков.', practice: 'Таможенная очистка на покупателе. Задержки на таможне — риск покупателя.', tactic: 'Лучшая альтернатива DDP при экспорте в страны со строгим валютным и таможенным контролем (РФ).', insurance: 'Продавец несет риск до конца, поэтому сам заинтересован в страховке.' } },
+            'DPU': { name: 'Delivered at Place Unloaded', desc: 'Продавец доставляет и выгружает товар в месте назначения. Импорт на покупателе.', transport: 'Любой', isMaritime: false, seller: ['goods', 'export', 'freight', 'insurance', 'delivery'], buyer: ['import'], risk: 'После выгрузки', analysis: { normative: 'Новый базис 2020 года (заменил DAT). Единственный, где продавец обязан выгрузить.', practice: 'Продавец должен убедиться, что у него есть тех. возможность разгрузки в стране назначения.', tactic: 'Удобен для поставки на стройплощадки и монтажные объекты.', insurance: 'Риск продавца до момента касания грузом земли.' } },
+            'DDP': { name: 'Delivered Duty Paid', desc: 'Максимум обязательств продавца. Включает доставку, таможенную очистку и уплату пошлин.', transport: 'Любой', isMaritime: false, seller: ['goods', 'export', 'freight', 'insurance', 'delivery', 'import'], buyer: [], risk: 'После очистки', analysis: { normative: 'Продавец несет все риски и обязан растаможить груз в чужой стране.', practice: 'В РФ и ЕС часто невозможен из-за принципа резидентства (нерезидент не может подать ГТД).', tactic: 'Требует наличия локального юрлица или таможенного брокера, готового стать импортером.', insurance: 'Продавец страхует свои огромные риски сам.' } }
         };
 
         const COST_ITEMS = {
@@ -370,280 +441,752 @@
             'delivery': (v, d) => 400
         };
 
-        let map, markerA, markerB, markerTransit, routeLine;
-        let pointA = null, pointB = null, pointTransit = null;
-        let currentDistance = 0, currentGroup = 'F', currentIncoterm = 'FCA';
-        let geocodeTimeoutA, geocodeTimeoutB;
-        let isWaitingForTransit = false;
+        const MULTIMODAL_TERMS = ['EXW', 'FCA', 'CPT', 'CIP', 'DAP', 'DPU', 'DDP'];
+        const MARITIME_TERMS = ['FAS', 'FOB', 'CFR', 'CIF'];
 
-        const CARGO_OPTIONS = [
-            { value: 10000, label: '$10k' },
-            { value: 100000, label: '$100k' },
-            { value: 1000000, label: '$1M' }
-        ];
+        let map, markerA, markerB, markerTransit, routeLine;
+        let iconA, iconB, iconTransit;
+        let pointA = null, pointB = null, pointTransit = null;
+        let countryAName = '', countryBName = '', countryTransitName = '';
+        let currentDistance = 0, currentIncoterm = 'FCA';
+        let currentTransportMode = 'any'; 
+        let geocodeTimeoutA, geocodeTimeoutB, geocodeTimeoutTransit;
+        let isWaitingForTransit = false;
+        let originalMapParent = null;
         let currentCargoValue = 100000;
 
         const formatMoney = (amount) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount);
 
-        // --- ПОЛНОЭКРАННЫЙ РЕЖИМ ---
-        function toggleFullscreen() {
-            const container = document.getElementById('map-container');
-            const icon = document.getElementById('fullscreen-icon');
-            
-            if (!document.fullscreenElement) {
-                container.requestFullscreen().catch(err => {
-                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
-                });
+        let lastScrollY = window.scrollY;
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('sticky-header');
+            if (!header) return;
+            const currentScrollY = window.scrollY;
+            if (currentScrollY > lastScrollY && currentScrollY > 80) header.style.transform = 'translateY(-100%)';
+            else header.style.transform = 'translateY(0)';
+            if (currentScrollY > 10) header.classList.add('shadow-sm', 'border-ios-grayLight/40');
+            else header.classList.remove('shadow-sm', 'border-ios-grayLight/40');
+            lastScrollY = currentScrollY;
+        });
+
+        function toggleRisksDropdown() {
+            const content = document.getElementById('risks-dropdown-content');
+            const chevron = document.getElementById('risks-chevron');
+            if (content.classList.contains('max-h-0')) {
+                content.classList.remove('max-h-0');
+                content.classList.add('max-h-[500px]');
+                chevron.classList.add('rotate-180');
             } else {
-                document.exitFullscreen();
+                content.classList.remove('max-h-[500px]');
+                content.classList.add('max-h-0');
+                chevron.classList.remove('rotate-180');
             }
         }
 
+        function restoreMapToCalculator() {
+            const mapContainer = document.getElementById('map-container');
+            const targetParent = originalMapParent || document.getElementById('left-column-calc');
+            if (mapContainer && targetParent && !targetParent.contains(mapContainer)) {
+                mapContainer.classList.add('h-[40vh]', 'lg:h-[50vh]', 'min-h-[300px]');
+                mapContainer.classList.remove('h-full', 'w-full');
+                mapContainer.style.height = ""; 
+                targetParent.prepend(mapContainer);
+            }
+        }
+
+        function updateWizRouteInfo() {
+            const wizDist = document.getElementById('wiz-distance');
+            if (wizDist) wizDist.innerText = new Intl.NumberFormat('en-US').format(currentDistance);
+            const wizTransitBtn = document.getElementById('wiz-transit-btn');
+            if (wizTransitBtn) {
+                if (pointTransit) wizTransitBtn.classList.add('hidden');
+                else wizTransitBtn.classList.remove('hidden');
+            }
+        }
+
+        let currentPlatformMode = 'calc'; 
+        let isPlatformAnimating = false;
+
+        function switchPlatformMode(mode) {
+            if (mode === currentPlatformMode || isPlatformAnimating) return;
+            isPlatformAnimating = true;
+
+            const calcView = document.getElementById('calculator-view');
+            const wizView = document.getElementById('wizard-view');
+            const btnCalc = document.getElementById('mode-calc');
+            const btnWiz = document.getElementById('mode-wizard');
+            const desktopResetBtn = document.getElementById('desktop-reset-btn');
+
+            if (mode === 'calc') {
+                btnCalc.className = 'flex-1 py-1 text-[13px] font-semibold bg-white shadow-ios-segment rounded-[9px] text-ios-text transition-all duration-200';
+                btnWiz.className = 'flex-1 py-1 text-[13px] font-medium text-ios-gray hover:text-ios-text transition-all duration-200';
+            } else {
+                btnWiz.className = 'flex-1 py-1 text-[13px] font-semibold bg-white shadow-ios-segment rounded-[9px] text-ios-text transition-all duration-200';
+                btnCalc.className = 'flex-1 py-1 text-[13px] font-medium text-ios-gray hover:text-ios-text transition-all duration-200';
+            }
+
+            const currentView = mode === 'calc' ? wizView : calcView;
+            const nextView = mode === 'calc' ? calcView : wizView;
+
+            currentView.classList.remove('fade-in');
+            currentView.classList.add('fade-out');
+            if (mode === 'wizard' && desktopResetBtn) desktopResetBtn.classList.add('opacity-0', 'pointer-events-none');
+
+            setTimeout(() => {
+                currentView.classList.add('hidden');
+                currentView.classList.remove('fade-out');
+
+                nextView.classList.remove('hidden');
+                void nextView.offsetWidth; 
+                nextView.classList.add('fade-in');
+
+                if (mode === 'calc') {
+                    currentPlatformMode = 'calc';
+                    restoreMapToCalculator(); 
+                    if (desktopResetBtn) desktopResetBtn.classList.remove('opacity-0', 'pointer-events-none', 'invisible');
+                    setTimeout(() => { map.invalidateSize(); }, 500);
+                } else {
+                    currentPlatformMode = 'wizard';
+                    if (desktopResetBtn) desktopResetBtn.classList.add('invisible');
+                    initWizard(); 
+                }
+                isPlatformAnimating = false;
+            }, 300);
+        }
+
+        const WIZARD_QUESTIONS = [
+            {
+                title: "Вид перевозки", subtitle: "Каким видом транспорта планируется доставка?", key: "transport",
+                options: [
+                    { value: "any", label: "Наземный / Смешанный", desc: "Авто, ЖД, Авиа или мультимодальные маршруты.", icon: "fa-truck" },
+                    { value: "sea", label: "Только Морской", desc: "Перевозка осуществляется исключительно водными судами.", icon: "fa-ship" }
+                ]
+            },
+            {
+                title: "Характеристики груза", subtitle: "Каковы особенности перевозимого товара?", key: "cargo",
+                options: [
+                    { value: "standard", label: "Стандартный товар", desc: "Обычный упакованный груз без повышенных требований к страховке.", icon: "fa-box" },
+                    { value: "valuable", label: "Высокая стоимость / Хрупкость", desc: "Оборудование, электроника, требующие максимального покрытия рисков.", icon: "fa-gem" },
+                    { value: "bulk", label: "Насыпной / Навалом", desc: "Уголь, металл, зерно или нефтепродукты без тары.", icon: "fa-dolly" }
+                ]
+            },
+            {
+                title: "Зона ответственности", subtitle: "Как вы желаете распределить логистические задачи?", key: "responsibility",
+                options: [
+                    { value: "buyer", label: "Покупатель забирает сам", desc: "Покупатель полностью организует логистику со склада продавца.", icon: "fa-warehouse" },
+                    { value: "seller", label: "Организует продавец", desc: "Продавец доставляет груз до согласованного адреса.", icon: "fa-truck-ramp-box" },
+                    { value: "shared", label: "Разделение логистики", desc: "Продавец везет до порта или терминала, покупатель забирает оттуда.", icon: "fa-handshake" }
+                ]
+            },
+            { title: "География поставки", subtitle: "Укажите точки Продавца и Покупателя кликами на карте или введите их адреса текстом.", key: "route", isMapStep: true }
+        ];
+
+        let wizardStep = 0;
+        let wizardAnswers = { transport: null, cargo: null, responsibility: null };
+
+        function initWizard() {
+            wizardStep = 0;
+            wizardAnswers = { transport: null, cargo: null, responsibility: null };
+            renderWizardStep();
+        }
+
+        function renderWizardStep() {
+            restoreMapToCalculator();
+            const container = document.getElementById('wizard-step-container');
+            const prevBtn = document.getElementById('wizard-prev-btn');
+            const nextBtn = document.getElementById('wizard-next-btn');
+            const progressContainer = document.getElementById('wizard-progress-dots');
+
+            if (wizardStep === 0) prevBtn.classList.add('opacity-0', 'pointer-events-none');
+            else prevBtn.classList.remove('opacity-0', 'pointer-events-none');
+
+            progressContainer.innerHTML = '';
+            for (let i = 0; i < WIZARD_QUESTIONS.length + 1; i++) {
+                const dot = document.createElement('div');
+                dot.className = `w-2 h-2 rounded-full transition-all duration-300 ${i === wizardStep ? 'bg-ios-blue scale-125' : 'bg-ios-grayLight'}`;
+                progressContainer.appendChild(dot);
+            }
+
+            if (wizardStep === WIZARD_QUESTIONS.length) {
+                nextBtn.classList.add('opacity-0', 'pointer-events-none');
+                renderWizardResults();
+                return;
+            } else {
+                nextBtn.classList.remove('opacity-0', 'pointer-events-none');
+                nextBtn.innerText = 'Далее';
+            }
+
+            const q = WIZARD_QUESTIONS[wizardStep];
+
+            if (q.isMapStep) {
+                container.innerHTML = `
+                    <div class="fade-in flex flex-col gap-4">
+                        <span class="text-[12px] font-bold text-ios-blue uppercase tracking-wider">Шаг ${wizardStep + 1} из ${WIZARD_QUESTIONS.length}</span>
+                        <h3 class="text-[20px] font-bold text-ios-text tracking-tight mt-1">${q.title}</h3>
+                        <p class="text-[14px] text-ios-gray mb-1 leading-relaxed">${q.subtitle}</p>
+                        <div id="wizard-map-placeholder" class="h-[300px] w-full rounded-[24px] overflow-hidden border border-black/5 relative"></div>
+                        <div class="flex flex-col sm:flex-row gap-3 items-center justify-between bg-ios-bg p-4 rounded-2xl border border-black/5 mt-1">
+                            <div class="text-left w-full sm:w-auto">
+                                <div class="text-[10px] font-bold text-ios-gray uppercase tracking-wider mb-0.5">Маршрут в опроснике</div>
+                                <div class="text-[15px] font-bold text-ios-text">
+                                    Дистанция: <span id="wiz-distance" class="text-ios-blue">0</span> км
+                                </div>
+                            </div>
+                            <button id="wiz-transit-btn" onclick="enableTransitMode()" class="w-full sm:w-auto px-4 py-2 bg-ios-orange/10 text-ios-orange hover:bg-ios-orange/20 transition-all text-[13px] font-semibold rounded-xl flex items-center justify-center gap-1.5 active:scale-95">
+                                <i class="fa-solid fa-plus"></i> Промежуточная точка
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                const mapContainer = document.getElementById('map-container');
+                const placeholder = document.getElementById('wizard-map-placeholder');
+                if (mapContainer && placeholder) {
+                    mapContainer.classList.remove('h-[40vh]', 'lg:h-[50vh]', 'min-h-[300px]');
+                    mapContainer.classList.add('h-full', 'w-full');
+                    mapContainer.style.height = "100%";
+                    placeholder.appendChild(mapContainer);
+                }
+                setTimeout(() => { map.invalidateSize(); }, 500);
+                updateWizRouteInfo();
+                return;
+            }
+
+            let optionsHTML = '';
+            q.options.forEach(opt => {
+                const isSelected = wizardAnswers[q.key] === opt.value;
+                const borderClass = isSelected ? 'border-ios-blue bg-ios-blue/5 shadow-[0_0_12px_rgba(0,80,200,0.1)]' : 'border-black/5 bg-ios-bg hover:border-ios-blue/30';
+                const checkmarkClass = isSelected ? 'text-ios-blue opacity-100' : 'opacity-0';
+
+                optionsHTML += `
+                    <div id="wizard-opt-${opt.value}" onclick="selectWizardOption('${q.key}', '${opt.value}')" class="flex items-start gap-4 p-4 rounded-2xl border transition-all duration-200 cursor-pointer ${borderClass}">
+                        <div class="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-ios-blue text-[16px] shrink-0"><i class="fa-solid ${opt.icon}"></i></div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="text-[15px] font-bold text-ios-text mb-0.5">${opt.label}</h4>
+                            <p class="text-[13px] text-ios-gray leading-snug">${opt.desc}</p>
+                        </div>
+                        <div id="wizard-check-${opt.value}" class="self-center w-5 h-5 flex items-center justify-center shrink-0 transition-opacity duration-200 ${checkmarkClass}"><i class="fa-solid fa-circle-check text-[18px]"></i></div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = `
+                <div class="fade-in">
+                    <span class="text-[12px] font-bold text-ios-blue uppercase tracking-wider">Шаг ${wizardStep + 1} из ${WIZARD_QUESTIONS.length}</span>
+                    <h3 class="text-[20px] font-bold text-ios-text tracking-tight mt-1 mb-2">${q.title}</h3>
+                    <p class="text-[14px] text-ios-gray mb-6 leading-relaxed">${q.subtitle}</p>
+                    <div class="flex flex-col gap-3">${optionsHTML}</div>
+                </div>
+            `;
+        }
+
+        function selectWizardOption(key, val) {
+            wizardAnswers[key] = val;
+            const currentQuestion = WIZARD_QUESTIONS[wizardStep];
+            currentQuestion.options.forEach(opt => {
+                const optionDiv = document.getElementById(`wizard-opt-${opt.value}`);
+                const checkIcon = document.getElementById(`wizard-check-${opt.value}`);
+                if (!optionDiv || !checkIcon) return;
+                if (opt.value === val) {
+                    optionDiv.className = 'flex items-start gap-4 p-4 rounded-2xl border transition-all duration-200 cursor-pointer border-ios-blue bg-ios-blue/5 shadow-[0_0_12px_rgba(0,80,200,0.1)]';
+                    checkIcon.className = 'self-center w-5 h-5 flex items-center justify-center shrink-0 transition-opacity duration-200 text-ios-blue opacity-100';
+                } else {
+                    optionDiv.className = 'flex items-start gap-4 p-4 rounded-2xl border transition-all duration-200 cursor-pointer border-black/5 bg-ios-bg hover:border-ios-blue/30';
+                    checkIcon.className = 'self-center w-5 h-5 flex items-center justify-center shrink-0 transition-opacity duration-200 opacity-0';
+                }
+            });
+        }
+
+        let isWizardAnimating = false;
+        function transitionWizard(callback) {
+            if (isWizardAnimating) return;
+            isWizardAnimating = true;
+            const container = document.getElementById('wizard-step-container');
+            const content = container.firstElementChild;
+            if (content) {
+                content.classList.remove('fade-in');
+                content.classList.add('fade-out');
+                setTimeout(() => { callback(); isWizardAnimating = false; }, 300);
+            } else {
+                callback(); isWizardAnimating = false;
+            }
+        }
+
+        function wizardNext() {
+            const currentQuestion = WIZARD_QUESTIONS[wizardStep];
+            if (currentQuestion.isMapStep) {
+                if (!pointA || !pointB) { alert('Пожалуйста, укажите на карте или введите текстом точки Продавца и Покупателя.'); return; }
+            } else {
+                if (!wizardAnswers[currentQuestion.key]) { alert('Пожалуйста, выберите один из вариантов.'); return; }
+            }
+            transitionWizard(() => { wizardStep++; renderWizardStep(); });
+        }
+
+        function wizardPrev() {
+            if (wizardStep > 0) transitionWizard(() => { wizardStep--; renderWizardStep(); });
+        }
+
+        function renderWizardResults() {
+            const container = document.getElementById('wizard-step-container');
+            const scores = {};
+            Object.keys(INCOTERMS).forEach(term => scores[term] = 0);
+
+            const trans = wizardAnswers.transport;
+            const cargo = wizardAnswers.cargo;
+            const resp = wizardAnswers.responsibility;
+
+            Object.keys(INCOTERMS).forEach(term => {
+                const isMaritime = INCOTERMS[term].isMaritime;
+                if (trans === 'sea' && isMaritime) scores[term] += 40;
+                if (trans === 'any' && !isMaritime) scores[term] += 40;
+                if (trans === 'any' && isMaritime) scores[term] = -100;
+            });
+
+            if (cargo === 'valuable') { scores['CIP'] += 30; scores['CIF'] += 30; scores['EXW'] -= 20; }
+            else if (cargo === 'bulk') { scores['FAS'] += 20; scores['FOB'] += 20; scores['CFR'] += 20; scores['CIF'] += 20; }
+
+            if (resp === 'buyer') { scores['EXW'] += 50; scores['FCA'] += 40; scores['FOB'] += 20; }
+            else if (resp === 'seller') { scores['DAP'] += 50; scores['DPU'] += 50; scores['DDP'] += 50; }
+            else if (resp === 'shared') { scores['CPT'] += 50; scores['CIP'] += 50; scores['CFR'] += 50; scores['CIF'] += 50; }
+
+            // ПРИМЕНЕНИЕ ОГРАНИЧЕНИЙ ИЗ БД (Красные флаги исключают базис)
+            if (countryBName && RESTRICTIONS.DDP_PROHIBITED.includes(countryBName)) scores['DDP'] = -999;
+            if (countryAName && RESTRICTIONS.EXW_PROHIBITED.includes(countryAName)) scores['EXW'] = -999;
+
+            const hasInsuranceRestriction = 
+    (countryAName && RESTRICTIONS.INSURANCE_RESTRICTED.includes(countryAName)) ||
+    (countryBName && RESTRICTIONS.INSURANCE_RESTRICTED.includes(countryBName));
+
+if (hasInsuranceRestriction) {
+    scores['CIP'] -= 30;
+    scores['CIF'] -= 30;
+}
+
+            const sortedResults = Object.keys(scores)
+                .map(term => ({ term, score: scores[term] }))
+                .filter(item => item.score >= 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 3);
+
+            let cardsHTML = '';
+            sortedResults.forEach((res) => {
+                const termData = INCOTERMS[res.term];
+                const percent = Math.min(100, Math.max(45, Math.round((res.score / 120) * 100)));
+
+                cardsHTML += `
+                    <div onclick="applyWizardIncoterm('${res.term}', '${trans}')" class="flex items-center justify-between gap-4 p-4 rounded-2xl border border-black/5 bg-ios-bg hover:border-ios-blue/40 transition-all duration-200 cursor-pointer group">
+                        <div class="flex items-center gap-4 min-w-0">
+                            <div class="w-12 h-12 rounded-xl bg-ios-blue text-white font-bold text-[16px] flex items-center justify-center shrink-0">${res.term}</div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2 mb-0.5">
+                                    <span class="text-[14px] font-bold text-ios-text">${termData.name}</span>
+                                    <span class="text-[11px] font-semibold text-ios-green bg-ios-green/10 px-1.5 py-0.5 rounded">${percent}% совпало</span>
+                                </div>
+                                <p class="text-[12.5px] text-ios-gray truncate leading-none">${termData.desc}</p>
+                            </div>
+                        </div>
+                        <div class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-ios-blue shrink-0 group-hover:translate-x-1 transition-transform">
+                            <i class="fa-solid fa-arrow-right text-[14px]"></i>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = `
+                <div class="fade-in">
+                    <span class="text-[12px] font-bold text-ios-green uppercase tracking-wider">Подбор завершен</span>
+                    <h3 class="text-[20px] font-bold text-ios-text tracking-tight mt-1 mb-2">Рекомендуемые базисы</h3>
+                    <p class="text-[14px] text-ios-gray mb-6 leading-relaxed">На основе ответов мы подобрали наиболее безопасные и выгодные варианты. Кликните на нужную карту, чтобы открыть ее на интерактивной схеме маршрута.</p>
+                    <div class="flex flex-col gap-3">${cardsHTML}</div>
+                </div>
+            `;
+        }
+
+        function applyWizardIncoterm(term, trans) {
+            setTransportMode(trans);
+            selectIncoterm(term);
+            switchPlatformMode('calc');
+
+            const overlay = document.getElementById('instruction-overlay');
+            if (overlay) {
+                if (pointA && pointB) {
+                    overlay.style.opacity = '0';
+                    setTimeout(() => { overlay.style.display = 'none'; }, 300);
+                } else {
+                    overlay.style.display = 'flex';
+                    overlay.style.opacity = '0';
+                    void overlay.offsetWidth; 
+                    overlay.style.opacity = '1';
+                    document.getElementById('instruction-text').innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-ios-blue animate-pulse shrink-0"></span> Выбран базис ${term}. Отметьте точки на карте для расчета стоимости.`;
+                }
+            }
+        }
+
+        function toggleFullscreen() {
+            const container = document.getElementById('map-container');
+            if (!document.fullscreenElement) container.requestFullscreen().catch(err => console.log(err));
+            else document.exitFullscreen();
+        }
         document.addEventListener('fullscreenchange', () => {
             const icon = document.getElementById('fullscreen-icon');
-            if (document.fullscreenElement) {
-                icon.classList.replace('fa-expand', 'fa-compress');
-            } else {
-                icon.classList.replace('fa-compress', 'fa-expand');
-            }
+            if (document.fullscreenElement) icon.classList.replace('fa-expand', 'fa-compress');
+            else icon.classList.replace('fa-compress', 'fa-expand');
             setTimeout(() => map.invalidateSize(), 100);
         });
 
-        // --- ГЕОКОДИНГ ---
-        async function fetchCountry(lat, lng, elementId) {
-            const el = document.getElementById(elementId);
-            el.innerText = 'Определение...';
+        async function fetchCountry(lat, lng, type) {
+            const input = document.getElementById(`address-${type.toLowerCase()}-input`);
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=3&accept-language=ru`);
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&accept-language=ru`);
                 const data = await response.json();
-                el.innerText = data.address?.country || 'Международные воды';
+                
+                const country = data.address?.country || 'Международные воды';
+                const city = data.address?.city || data.address?.town || data.address?.village || data.address?.state || '';
+                const formattedAddress = city ? `${city}, ${country}` : country;
+
+                if (type === 'A' || type === 'B') {
+                    if (input) input.value = formattedAddress;
+                }
+
+                if (type === 'A') countryAName = country;
+                else if (type === 'B') countryBName = country;
+                else if (type === 'Transit') countryTransitName = country;
+                
+                checkSmartAlerts();
             } catch (error) {
-                el.innerText = 'Не удалось определить';
+                if (type === 'A' || type === 'B') if (input) input.value = 'Координаты на карте';
             }
         }
 
-        // --- СУММА КОНТРАКТА ---
-        function setCargoValue(val, isCustom = false) {
-            currentCargoValue = val;
-            document.getElementById('cargo-value-display').innerText = `$${new Intl.NumberFormat('en-US').format(val)}`;
-            
-            CARGO_OPTIONS.forEach(opt => {
-                const btn = document.getElementById(`cargo-btn-${opt.value}`);
-                if (btn) {
-                    if (opt.value === val && !isCustom) {
-                        btn.classList.add('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]');
-                        btn.classList.remove('text-ios-gray', 'hover:text-ios-blue');
-                    } else {
-                        btn.classList.remove('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]');
-                        btn.classList.add('text-ios-gray', 'hover:text-ios-blue');
-                    }
-                }
-            });
-            
-            if (!isCustom) {
-                document.getElementById('custom-cargo-input').value = '';
-            }
-            
+        function handleCargoInputChange(val) {
+            let num = parseInt(val);
+            if (isNaN(num) || num < 0) num = 0; 
+            currentCargoValue = num;
             if (pointA && pointB) calculateCosts();
         }
 
-        function handleCustomCargo(val) {
-            let num = parseInt(val);
-            if (isNaN(num) || num <= 0) return;
-            setCargoValue(num, true);
+        function initUI() { setTransportMode('any'); }
+
+        function setTransportMode(mode) {
+            currentTransportMode = mode;
+            const btnAny = document.getElementById('trans-any');
+            const btnSea = document.getElementById('trans-sea');
+
+            if (mode === 'any') {
+                btnAny.className = 'flex-1 py-1.5 text-[13px] font-semibold bg-white shadow-ios-segment rounded-[9px] text-ios-text transition-all duration-200';
+                btnSea.className = 'flex-1 py-1.5 text-[13px] font-medium text-ios-gray hover:text-ios-text transition-all duration-200';
+                if (!MULTIMODAL_TERMS.includes(currentIncoterm)) currentIncoterm = 'FCA';
+            } else {
+                btnSea.className = 'flex-1 py-1.5 text-[13px] font-semibold bg-white shadow-ios-segment rounded-[9px] text-ios-text transition-all duration-200';
+                btnAny.className = 'flex-1 py-1.5 text-[13px] font-medium text-ios-gray hover:text-ios-text transition-all duration-200';
+                if (!MARITIME_TERMS.includes(currentIncoterm)) currentIncoterm = 'FOB';
+            }
+            renderIncotermsGrid();
+            selectIncoterm(currentIncoterm);
         }
 
-        // --- ИНИЦИАЛИЗАЦИЯ UI ---
-        function initUI() {
-            const cargoSelector = document.getElementById('cargo-selector');
-            CARGO_OPTIONS.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.id = `cargo-btn-${opt.value}`;
-                btn.innerText = opt.label;
-                btn.onclick = () => setCargoValue(opt.value);
-                btn.className = 'flex-1 h-full text-[13px] font-medium transition-all duration-200 z-10 relative flex items-center justify-center';
-                cargoSelector.appendChild(btn);
-            });
-            setCargoValue(100000);
-
-            const groupSelector = document.getElementById('group-selector');
-            Object.keys(INCOTERMS_GROUPS).forEach(group => {
-                const btn = document.createElement('button');
-                btn.id = `group-btn-${group}`;
-                btn.innerText = `Группа ${group}`;
-                btn.onclick = () => selectGroup(group);
-                btn.className = 'flex-1 h-full text-[13px] font-medium transition-all duration-200 z-10 relative flex items-center justify-center';
-                groupSelector.appendChild(btn);
-            });
-            selectGroup('F');
-        }
-
-        function selectGroup(group) {
-            currentGroup = group;
+        function renderIncotermsGrid() {
+            const container = document.getElementById('incoterms-grid-selector');
+            if (!container) return;
+            container.innerHTML = '';
+            const activeTerms = currentTransportMode === 'any' ? MULTIMODAL_TERMS : MARITIME_TERMS;
             
-            Object.keys(INCOTERMS_GROUPS).forEach(g => {
-                const btn = document.getElementById(`group-btn-${g}`);
-                if (g === group) {
-                    btn.classList.add('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]');
-                    btn.classList.remove('text-ios-gray', 'hover:text-ios-blue');
-                } else {
-                    btn.classList.remove('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]');
-                    btn.classList.add('text-ios-gray', 'hover:text-ios-blue');
-                }
-            });
-
-            const termSelector = document.getElementById('incoterms-selector');
-            termSelector.innerHTML = '';
-            INCOTERMS_GROUPS[group].forEach(term => {
+            activeTerms.forEach(term => {
                 const btn = document.createElement('button');
                 btn.id = `btn-${term}`;
                 btn.innerText = term;
                 btn.onclick = () => selectIncoterm(term);
-                btn.className = 'flex-1 h-full text-[13px] font-medium transition-all duration-200 z-10 relative flex items-center justify-center cursor-pointer';
-                termSelector.appendChild(btn);
+                btn.className = 'px-3 py-1.5 rounded-lg text-[13.5px] font-medium transition-all duration-200 cursor-pointer text-ios-gray hover:text-ios-text bg-transparent';
+                container.appendChild(btn);
             });
-
-            selectIncoterm(INCOTERMS_GROUPS[group][0]);
         }
 
         function selectIncoterm(term) {
             currentIncoterm = term;
-            
-            INCOTERMS_GROUPS[currentGroup].forEach(key => {
-                const btn = document.getElementById(`btn-${key}`);
-                if (key === term) {
-                    btn.classList.add('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]');
-                    btn.classList.remove('text-ios-gray', 'hover:text-ios-blue');
-                } else {
-                    btn.classList.remove('text-white', 'font-semibold', 'bg-ios-blue', 'shadow-ios-segment', 'rounded-[7px]');
-                    btn.classList.add('text-ios-gray', 'hover:text-ios-blue');
-                }
-            });
-            
             const tData = INCOTERMS[term];
-            document.getElementById('incoterm-title').innerText = `${term} (${tData.name})`;
-            document.getElementById('incoterm-desc').innerText = tData.desc;
+            if (!tData) return;
             
-            const transportIcon = tData.transport === 'Морской' ? '<i class="fa-solid fa-ship"></i>' : '<i class="fa-solid fa-truck-fast"></i>';
-            document.getElementById('incoterm-transport').innerHTML = `${transportIcon} ${tData.transport}`;
+            const activeTerms = currentTransportMode === 'any' ? MULTIMODAL_TERMS : MARITIME_TERMS;
+            
+            activeTerms.forEach(key => {
+                const btn = document.getElementById(`btn-${key}`);
+                if (!btn) return;
+                
+                if (key === term) btn.className = 'px-3.5 py-1.5 rounded-lg text-[13.5px] font-bold transition-all duration-200 cursor-pointer bg-ios-blue text-white shadow-sm';
+                else btn.className = 'px-3 py-1.5 rounded-lg text-[13.5px] font-medium transition-all duration-200 cursor-pointer text-ios-gray hover:text-ios-text bg-transparent';
+            });
 
+            const descBlock = document.getElementById('incoterm-minimal-desc');
+            const risksBlock = document.getElementById('risks-grid');
+
+            if (descBlock) {
+                descBlock.style.transition = 'opacity 0.15s ease, transform 0.15s ease';
+                descBlock.style.opacity = '0';
+                descBlock.style.transform = 'translateY(2px)';
+                
+                setTimeout(() => {
+                    descBlock.innerHTML = `<span class="font-bold text-ios-text text-[14px]">${term} (${tData.name})</span> — ${tData.desc}`;
+                    descBlock.style.opacity = '1';
+                    descBlock.style.transform = 'translateY(0)';
+                }, 150);
+            }
+
+            if (risksBlock) {
+                document.getElementById('risk-normative').innerText = tData.analysis.normative;
+                document.getElementById('risk-practice').innerText = tData.analysis.practice;
+                document.getElementById('risk-tactic').innerText = tData.analysis.tactic;
+                document.getElementById('risk-insurance').innerText = tData.analysis.insurance;
+            }
+
+            checkSmartAlerts();
             if (pointA && pointB) calculateCosts();
         }
 
-        // --- КАРТА И МАРШРУТИЗАЦИЯ ---
+        // --- ГЕНЕРАТОР УМНЫХ УВЕДОМЛЕНИЙ (АЛГОРИТМ ПАРТНЕРА) ---
+        function checkSmartAlerts() {
+            const container = document.getElementById('alerts-container');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            let alerts = [];
+            
+            const isCrossBorder = countryAName && countryBName && countryAName !== countryBName && countryAName !== 'Международные воды' && countryBName !== 'Международные воды';
+
+            // УРОВЕНЬ 1. БАЗОВЫЕ ПРАВИЛА (ГЛОБАЛЬНО)
+            if (isCrossBorder && currentIncoterm === 'EXW') {
+                alerts.push({ type: 'yellow', text: '<b>Глобальное правило:</b> По EXW продавец не обязан оформлять экспорт. Покупателю-нерезиденту часто сложно это сделать. Рекомендуем заменить на <b>FCA</b>.' });
+            }
+            if (isCrossBorder && currentIncoterm === 'DDP') {
+                alerts.push({ type: 'yellow', text: '<b>Глобальное правило:</b> Импортное оформление (DDP) в большинстве стран требует местного резидента. Лучше заменить на <b>DAP/DPU</b>.' });
+            }
+
+            // УРОВЕНЬ 2. ТАМОЖЕННЫЕ ОГРАНИЧЕНИЯ (Красный флаг - Запрет)
+            if (currentIncoterm === 'DDP' && countryBName && RESTRICTIONS.DDP_PROHIBITED.includes(countryBName)) {
+                alerts.push({ type: 'red', text: `<b>Таможенный барьер (${countryBName}):</b> Иностранный продавец не может оформить импорт. Базис DDP запрещен или крайне затруднен. Настоятельно рекомендуем изменить на DAP.` });
+            }
+            if (currentIncoterm === 'EXW' && countryAName && RESTRICTIONS.EXW_PROHIBITED.includes(countryAName)) {
+                alerts.push({ type: 'red', text: `<b>Таможенный барьер (${countryAName}):</b> Экспортер должен быть резидентом. Покупатель-нерезидент не сможет оформить экспорт по EXW. Измените на FCA.` });
+            }
+
+            if (countryTransitName) {
+    if (currentIncoterm === 'DDP' && RESTRICTIONS.DDP_PROHIBITED.includes(countryTransitName)) {
+        alerts.push({ type: 'red', text: `<b>Транзитный барьер (${countryTransitName}):</b> Транзит или оформление требует резидента. Базис DDP здесь недопустим.` });
+    }
+    if (currentIncoterm === 'EXW' && RESTRICTIONS.EXW_PROHIBITED.includes(countryTransitName)) {
+        alerts.push({ type: 'red', text: `<b>Транзитный барьер (${countryTransitName}):</b> Транзит пересекает юрисдикцию со строгими правилами экспорта (требуется резидент). Замените EXW на FCA.` });
+    }
+}
+
+            // УРОВЕНЬ 2 и 3. СТРАХОВЫЕ ОГРАНИЧЕНИЯ (Желтый флаг - Включая анализ транзита)
+            if (['CIP', 'CIF'].includes(currentIncoterm)) {
+                let insuranceCountries = [];
+                if (countryAName && RESTRICTIONS.INSURANCE_RESTRICTED.includes(countryAName)) insuranceCountries.push(countryAName);
+                if (countryBName && RESTRICTIONS.INSURANCE_RESTRICTED.includes(countryBName)) insuranceCountries.push(countryBName);
+                if (countryTransitName && RESTRICTIONS.INSURANCE_RESTRICTED.includes(countryTransitName)) insuranceCountries.push(countryTransitName);
+                
+                insuranceCountries = [...new Set(insuranceCountries)];
+                
+                if (insuranceCountries.length > 0) {
+                    alerts.push({ type: 'yellow', text: `<b>Страховое ограничение (${insuranceCountries.join(', ')}):</b> Иностранная страховка запрещена или действует только до границы ввоза. Потребуется местный страховой полис.` });
+                }
+            }
+            
+  // УРОВЕНЬ 2. СПЕЦИФИЧЕСКИЕ ПРАВИЛА (Локальные особенности)
+            const checkSpecific = (country) => {
+                if (!country) return;
+                const c = country.toLowerCase();
+
+                // 1. БЕЗОПАСНАЯ ПРОВЕРКА США (без ложных срабатываний на другие страны)
+                const isUSA = c.includes('сша') || 
+                              c.includes('usa') || 
+                              c.includes('united states') || 
+                              c.includes('соединенные штаты') || 
+                              c.includes('соединённые штаты');
+
+                if (isUSA && ['FCA', 'FAS', 'FOB'].includes(currentIncoterm)) {
+                    alerts.push({ type: 'yellow', text: `<b>Специфика США:</b> Возможен конфликт с Foreign Trade Regulations (экспортный отчет подает агент покупателя).` });
+                }
+
+                // 2. ОСТАЛЬНЫЕ СТРАНЫ ИЗ ТЗ ПАРТНЕРА
+                if ((c.includes('таиланд') || c.includes('thailand')) && currentIncoterm === 'FOB') {
+                    alerts.push({ type: 'yellow', text: `<b>Специфика Таиланда:</b> Местные суды могут применять обычаи, переносящие риск потери груза.` });
+                }
+                if ((c.includes('албания') || c.includes('albania')) && ['CIF', 'CFR'].includes(currentIncoterm)) {
+                    alerts.push({ type: 'yellow', text: `<b>Специфика Албании:</b> По ст. 886 ГК отправитель может в любой момент приостановить перевозку.` });
+                }
+                if ((c.includes('япония') || c.includes('japan')) && ['DDP', 'CIF'].includes(currentIncoterm)) {
+                    alerts.push({ type: 'yellow', text: `<b>Специфика Японии:</b> Возможны задержки из-за разночтений по обязанностям уплаты пошлин.` });
+                }
+                if ((c.includes('мексика') || c.includes('mexico')) && currentIncoterm === 'CIF') {
+                    alerts.push({ type: 'yellow', text: `<b>Специфика Мексики:</b> Импортер может быть обязан декларировать товары как FOB для расчета налогов.` });
+                }
+                if ((c.includes('сенегал') || c.includes('senegal')) && currentIncoterm === 'FOB') {
+                    alerts.push({ type: 'yellow', text: `<b>Специфика Сенегала:</b> Риски по Декрету № 78-179 от 2 марта 1978 года.` });
+                }
+                if ((c.includes('турция') || c.includes('turkey')) && ['DDP', 'FOB'].includes(currentIncoterm)) {
+                    alerts.push({ type: 'yellow', text: `<b>Специфика Турции:</b> Требуется регистрация для импортных операций; риски при FOB с нерезидентами.` });
+                }
+                if ((c.includes('индонезия') || c.includes('indonesia')) && ['CIP', 'CIF'].includes(currentIncoterm)) {
+                    alerts.push({ type: 'yellow', text: `<b>Специфика Индонезии:</b> Обязательная страховка для экспорта угля и пальмового масла, импорта риса.` });
+                }
+                if ((c.includes('кения') || c.includes('kenya')) && ['CIP', 'CIF'].includes(currentIncoterm)) {
+                    alerts.push({ type: 'yellow', text: `<b>Специфика Кении:</b> Штрафы до 5 млн KES или тюрьма за нарушение Закона о местном страховании.` });
+                }
+            };
+
+            checkSpecific(countryAName);
+            checkSpecific(countryBName);
+            checkSpecific(countryTransitName);
+
+            // РЕНДЕРИНГ (Удаляем дубли, если транзит и финиш в одной стране)
+            const uniqueAlerts = Array.from(new Set(alerts.map(a => a.text)))
+                .map(text => alerts.find(a => a.text === text));
+
+            uniqueAlerts.forEach(alert => {
+                const div = document.createElement('div');
+                if (alert.type === 'red') {
+                    div.className = 'bg-ios-red/10 border border-ios-red/20 text-ios-red p-3.5 rounded-xl flex items-start gap-3 shrink-0 fade-in';
+                    div.innerHTML = `<i class="fa-solid fa-ban mt-0.5 text-[16px]"></i><p class="text-[13.5px] font-medium leading-snug text-ios-text">${alert.text}</p>`;
+                } else {
+                    div.className = 'bg-ios-orange/10 border border-ios-orange/20 text-ios-orange p-3.5 rounded-xl flex items-start gap-3 shrink-0 fade-in';
+                    div.innerHTML = `<i class="fa-solid fa-triangle-exclamation mt-0.5 text-[16px]"></i><p class="text-[13.5px] font-medium leading-snug text-ios-text">${alert.text}</p>`;
+                }
+                container.appendChild(div);
+            });
+        }
+
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([48, 15], 3);
-            
-            // Используем CartoDB Voyager: красивые границы, регионы, названия стран и столиц
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                subdomains: 'abcd', maxZoom: 10
-            }).addTo(map);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 10 }).addTo(map);
 
-            const iconA = L.divIcon({ className: 'pulse-marker marker-seller', iconSize: [22, 22], iconAnchor: [11, 11] });
-            const iconB = L.divIcon({ className: 'pulse-marker marker-buyer', iconSize: [22, 22], iconAnchor: [11, 11] });
-            const iconTransit = L.divIcon({ className: 'pulse-marker marker-transit', iconSize: [22, 22], iconAnchor: [11, 11] });
+            iconA = L.divIcon({ className: 'pulse-marker marker-seller', iconSize: [22, 22], iconAnchor: [11, 11] });
+            iconB = L.divIcon({ className: 'pulse-marker marker-buyer', iconSize: [22, 22], iconAnchor: [11, 11] });
+            iconTransit = L.divIcon({ className: 'pulse-marker marker-transit', iconSize: [22, 22], iconAnchor: [11, 11] });
 
             map.on('click', function(e) {
-                // Режим добавления транзитной точки
                 if (isWaitingForTransit && !pointTransit) {
                     pointTransit = e.latlng;
                     markerTransit = L.marker(pointTransit, {icon: iconTransit, draggable: true}).addTo(map);
                     markerTransit.bindTooltip("Транзит", {permanent: true, direction: "top", className: "custom-tooltip", offset: [0, -12]}).openTooltip();
-                    
-                    markerTransit.on('drag', function(event) {
-                        pointTransit = event.latlng;
-                        updateRouteDynamic();
+                    markerTransit.on('drag', function(event) { 
+                        pointTransit = event.latlng; updateRouteDynamic(); 
+                        clearTimeout(geocodeTimeoutTransit);
+                        geocodeTimeoutTransit = setTimeout(() => fetchCountry(pointTransit.lat, pointTransit.lng, 'Transit'), 800);
                     });
-
+                    
+                    fetchCountry(pointTransit.lat, pointTransit.lng, 'Transit');
+                    
                     isWaitingForTransit = false;
                     document.getElementById('instruction-overlay').style.opacity = '0';
                     setTimeout(() => document.getElementById('instruction-overlay').style.display = 'none', 300);
-                    
                     document.getElementById('add-transit-btn').classList.add('hidden');
                     updateRouteDynamic();
                     return;
                 }
 
-                if (!pointA) {
-                    pointA = e.latlng;
+                if (!pointA) setPointFromSearch('A', e.latlng);
+                else if (!pointB && !isWaitingForTransit) setPointFromSearch('B', e.latlng);
+            });
+        }
+
+        async function searchAddress(type) {
+            const input = document.getElementById(`address-${type.toLowerCase()}-input`);
+            if (!input) return;
+            const query = input.value.trim();
+            if (!query) return;
+
+            const originalBtn = input.nextElementSibling;
+            const originalIcon = originalBtn ? originalBtn.innerHTML : '';
+            if (originalBtn) originalBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin text-[13px]"></i>';
+
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lon = parseFloat(data[0].lon);
+                    const latlng = L.latLng(lat, lon);
+                    setPointFromSearch(type, latlng);
+                } else {
+                    alert('Адрес не найден. Попробуйте ввести город или страну.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Не удалось выполнить поиск адреса.');
+            } finally {
+                if (originalBtn) originalBtn.innerHTML = originalIcon;
+            }
+        }
+
+        function handleAddressKeyDown(event, type) {
+            if (event.key === 'Enter') searchAddress(type);
+        }
+
+        function setPointFromSearch(type, latlng) {
+            if (type === 'A') {
+                pointA = latlng;
+                if (markerA) markerA.setLatLng(pointA);
+                else {
                     markerA = L.marker(pointA, {icon: iconA, draggable: true}).addTo(map);
                     markerA.bindTooltip("Продавец", {permanent: true, direction: "top", className: "custom-tooltip", offset: [0, -12]}).openTooltip();
-                    
-                    document.getElementById('route-hint').classList.add('hidden');
-                    document.getElementById('route-countries').classList.remove('hidden');
-                    fetchCountry(pointA.lat, pointA.lng, 'country-a-name');
-                    document.getElementById('country-b-name').innerText = 'Укажите точку на карте...';
-
                     markerA.on('drag', function(event) {
-                        pointA = event.latlng;
-                        updateRouteDynamic();
+                        pointA = event.latlng; updateRouteDynamic();
                         clearTimeout(geocodeTimeoutA);
-                        geocodeTimeoutA = setTimeout(() => fetchCountry(pointA.lat, pointA.lng, 'country-a-name'), 800);
+                        geocodeTimeoutA = setTimeout(() => fetchCountry(pointA.lat, pointA.lng, 'A'), 800);
                     });
-                    
-                    const mobileReset = document.getElementById('mobile-reset-btn');
-                    if (mobileReset) {
-                        mobileReset.classList.remove('opacity-0', 'pointer-events-none');
-                        mobileReset.classList.add('opacity-100', 'pointer-events-auto');
-                    }
-                    
-                    const instr = document.getElementById('instruction-text');
-                    instr.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-ios-blue animate-pulse shrink-0 shadow-[0_0_8px_rgba(0,80,200,0.6)]"></span> Отметьте точку Покупателя';
+                }
+                fetchCountry(pointA.lat, pointA.lng, 'A');
+                map.setView(pointA, 5);
                 
-                } else if (!pointB && !isWaitingForTransit) {
-                    pointB = e.latlng;
+                const mobileReset = document.getElementById('mobile-reset-btn');
+                if (mobileReset) { mobileReset.classList.remove('opacity-0', 'pointer-events-none'); mobileReset.classList.add('opacity-100'); }
+                
+                if (!pointB) {
+                    document.getElementById('instruction-text').innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-ios-blue animate-pulse shrink-0 shadow-[0_0_8px_rgba(0,80,200,0.6)]"></span> Отметьте точку Покупателя';
+                }
+            } else if (type === 'B') {
+                pointB = latlng;
+                if (markerB) markerB.setLatLng(pointB);
+                else {
                     markerB = L.marker(pointB, {icon: iconB, draggable: true}).addTo(map);
                     markerB.bindTooltip("Покупатель", {permanent: true, direction: "top", className: "custom-tooltip", offset: [0, -12]}).openTooltip();
-                    
-                    fetchCountry(pointB.lat, pointB.lng, 'country-b-name');
-
                     markerB.on('drag', function(event) {
-                        pointB = event.latlng;
-                        updateRouteDynamic();
+                        pointB = event.latlng; updateRouteDynamic();
                         clearTimeout(geocodeTimeoutB);
-                        geocodeTimeoutB = setTimeout(() => fetchCountry(pointB.lat, pointB.lng, 'country-b-name'), 800);
+                        geocodeTimeoutB = setTimeout(() => fetchCountry(pointB.lat, pointB.lng, 'B'), 800);
                     });
-                    
-                    document.getElementById('instruction-overlay').style.opacity = '0';
-                    setTimeout(() => document.getElementById('instruction-overlay').style.display = 'none', 300);
-
-                    routeLine = L.polyline([pointA, pointB], {
-                        color: '#0050C8', weight: 3, dashArray: '8, 8', opacity: 0.5
-                    }).addTo(map);
-                    
-                    map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
-
-                    // Показываем кнопку добавления транзита
-                    document.getElementById('add-transit-btn').classList.remove('hidden');
-
-                    updateRouteDynamic();
-
-                    document.getElementById('results-placeholder').classList.add('hidden');
-                    document.getElementById('results-content').classList.remove('hidden');
-
-                    if (window.innerWidth < 1024) {
-                        setTimeout(() => {
-                            document.getElementById('calculator-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }, 500);
-                    }
                 }
-            });
+                fetchCountry(pointB.lat, pointB.lng, 'B');
+                
+                document.getElementById('instruction-overlay').style.opacity = '0';
+                setTimeout(() => document.getElementById('instruction-overlay').style.display = 'none', 300);
+            }
+
+            if (pointA && pointB) {
+                if (routeLine) updateRouteDynamic();
+                else routeLine = L.polyline([pointA, pointB], { color: '#0050C8', weight: 3, dashArray: '8, 8', opacity: 0.5 }).addTo(map);
+                map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+                document.getElementById('add-transit-btn').classList.remove('hidden');
+                document.getElementById('results-placeholder').classList.add('hidden');
+                document.getElementById('results-content').classList.remove('hidden');
+                
+                if (window.innerWidth < 1024 && currentPlatformMode === 'calc') {
+                    setTimeout(() => document.getElementById('calculator-section').scrollIntoView({ behavior: 'smooth', block: 'start' }), 500);
+                }
+            }
         }
 
         function enableTransitMode() {
             if (!pointA || !pointB) return;
             isWaitingForTransit = true;
-            
             const overlay = document.getElementById('instruction-overlay');
             overlay.style.display = 'flex';
             setTimeout(() => overlay.style.opacity = '1', 50);
-            
             document.getElementById('instruction-text').innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-ios-orange animate-pulse shrink-0 shadow-[0_0_8px_rgba(255,159,10,0.6)]"></span> Отметьте промежуточную точку';
         }
 
         function updateRouteDynamic() {
             if (!pointA || !pointB || !routeLine) return;
-            
             if (pointTransit) {
                 routeLine.setLatLngs([pointA, pointTransit, pointB]);
                 currentDistance = ((pointA.distanceTo(pointTransit) + pointTransit.distanceTo(pointB)) / 1000).toFixed(0);
@@ -651,8 +1194,11 @@
                 routeLine.setLatLngs([pointA, pointB]);
                 currentDistance = (pointA.distanceTo(pointB) / 1000).toFixed(0);
             }
-            
-            document.getElementById('distance-display').innerText = new Intl.NumberFormat('en-US').format(currentDistance);
+            const formattedDist = new Intl.NumberFormat('en-US').format(currentDistance);
+            document.getElementById('distance-display').innerText = formattedDist;
+            const wizDist = document.getElementById('wiz-distance');
+            if (wizDist) wizDist.innerText = formattedDist;
+            updateWizRouteInfo();
             calculateCosts();
         }
 
@@ -663,20 +1209,19 @@
             if (routeLine) map.removeLayer(routeLine);
             
             pointA = null; pointB = null; pointTransit = null; 
+            countryAName = ''; countryBName = ''; countryTransitName = '';
             currentDistance = 0; isWaitingForTransit = false;
             document.getElementById('distance-display').innerText = '0';
             
-            document.getElementById('route-countries').classList.add('hidden');
-            document.getElementById('route-hint').classList.remove('hidden');
+            const inputA = document.getElementById('address-a-input');
+            const inputB = document.getElementById('address-b-input');
+            if (inputA) inputA.value = '';
+            if (inputB) inputB.value = '';
+            
             document.getElementById('add-transit-btn').classList.add('hidden');
-            document.getElementById('country-a-name').innerText = 'Ожидание...';
-            document.getElementById('country-b-name').innerText = 'Ожидание...';
             
             const mobileReset = document.getElementById('mobile-reset-btn');
-            if (mobileReset) {
-                mobileReset.classList.add('opacity-0', 'pointer-events-none');
-                mobileReset.classList.remove('opacity-100', 'pointer-events-auto');
-            }
+            if (mobileReset) { mobileReset.classList.add('opacity-0', 'pointer-events-none'); mobileReset.classList.remove('opacity-100'); }
             
             const overlay = document.getElementById('instruction-overlay');
             overlay.style.display = 'flex'; 
@@ -685,24 +1230,19 @@
             
             document.getElementById('results-placeholder').classList.remove('hidden');
             document.getElementById('results-content').classList.add('hidden');
+            checkSmartAlerts();
 
             map.setView([48, 15], 3);
-
-            if (window.innerWidth < 1024) {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
+            if (window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // --- КАЛЬКУЛЯТОР ---
         function calculateCosts() {
             if (!pointA || !pointB) return;
-
             const cargoValue = currentCargoValue;
             const dist = parseFloat(currentDistance);
             const termData = INCOTERMS[currentIncoterm];
 
             let sellerTotal = 0, buyerTotal = 0;
-
             Object.keys(COST_ITEMS).forEach(itemKey => {
                 const cost = COST_ITEMS[itemKey](cargoValue, dist);
                 if (termData.seller.includes(itemKey)) sellerTotal += cost;
@@ -710,7 +1250,6 @@
             });
 
             const totalDealCost = sellerTotal + buyerTotal;
-
             document.getElementById('total-deal-cost').innerText = `$${formatMoney(totalDealCost)}`;
             document.getElementById('seller-total').innerText = `$${formatMoney(sellerTotal)}`;
             document.getElementById('buyer-total').innerText = `$${formatMoney(buyerTotal)}`;
@@ -718,11 +1257,70 @@
             const sellerPct = totalDealCost > 0 ? (sellerTotal / totalDealCost) * 100 : 50;
             document.getElementById('seller-bar').style.width = `${sellerPct}%`;
             document.getElementById('buyer-bar').style.width = `${100 - sellerPct}%`;
+        }
 
-            document.getElementById('risk-point').innerText = termData.risk;
+        function openContractModal() {
+            const modal = document.getElementById('contract-modal');
+            const backdrop = document.getElementById('contract-backdrop');
+            const content = document.getElementById('contract-content');
+            const termData = INCOTERMS[currentIncoterm];
+            
+            document.getElementById('modal-incoterm-title').innerText = `${currentIncoterm} (${termData.name})`;
+            
+            let aCountry = countryAName || 'Страна Продавца';
+            let bCountry = countryBName || 'Страна Покупателя';
+            let clause = `Любые споры, возникающие из настоящего контракта или в связи с ним, подлежат окончательному разрешению в Арбитражном институте Торговой палаты. \nМесто арбитража: нейтральная территория или юрисдикция по выбору сторон. \nЯзык арбитражного разбирательства: Английский. \nПри толковании торговых терминов применяются Международные правила толкования торговых терминов ИНКОТЕРМС® 2020.`;
+
+            if (bCountry === 'Россия' || bCountry === 'Russia') {
+                clause = `Любые споры, разногласия или требования, возникающие из настоящего контракта... подлежат разрешению в МКАС при Торгово-промышленной палате РФ в соответствии с его Правилами. \nМесто арбитража: г. Москва. \nПри толковании торговых терминов применяются ИНКОТЕРМС® 2020.`;
+            } else if (aCountry === 'Китай' || aCountry === 'China') {
+                clause = `Любые споры подлежат рассмотрению в CIETAC (Китайская международная экономическая и торговая арбитражная комиссия). \nМесто арбитража: Пекин. Язык: Английский. \nПрименяются правила ИНКОТЕРМС® 2020.`;
+            }
+            document.getElementById('modal-clause').value = clause;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                backdrop.classList.add('opacity-100');
+                content.classList.remove('opacity-0', 'translate-y-full', 'sm:translate-y-10', 'sm:scale-95');
+                content.classList.add('opacity-100', 'translate-y-0', 'sm:scale-100');
+            }, 10);
+        }
+
+        function closeContractModal() {
+            const backdrop = document.getElementById('contract-backdrop');
+            const content = document.getElementById('contract-content');
+            backdrop.classList.remove('opacity-100');
+            backdrop.classList.add('opacity-0');
+            content.classList.remove('opacity-100', 'translate-y-0', 'sm:scale-100');
+            content.classList.add('opacity-0', 'translate-y-full', 'sm:translate-y-10', 'sm:scale-95');
+            setTimeout(() => {
+                const modal = document.getElementById('contract-modal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }, 300);
+        }
+
+        function copyClause() {
+            const copyText = document.getElementById("modal-clause");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); 
+            navigator.clipboard.writeText(copyText.value);
+            const btn = event.currentTarget;
+            const icon = btn.querySelector('i');
+            icon.classList.remove('fa-regular', 'fa-copy');
+            icon.classList.add('fa-solid', 'fa-check', 'text-ios-green');
+            setTimeout(() => {
+                icon.classList.remove('fa-solid', 'fa-check', 'text-ios-green');
+                icon.classList.add('fa-regular', 'fa-copy');
+            }, 2000);
         }
 
         window.onload = () => {
+            const mapContainer = document.getElementById('map-container');
+            if (mapContainer) originalMapParent = mapContainer.parentElement;
+
             initUI();
             initMap();
             
@@ -744,11 +1342,7 @@
                 splashScreen.classList.add('opacity-0');
                 mainApp.classList.remove('opacity-0', 'pointer-events-none');
                 mainApp.classList.add('opacity-100');
-                
-                setTimeout(() => {
-                    map.invalidateSize();
-                    splashScreen.style.display = 'none';
-                }, 1000);
+                setTimeout(() => { map.invalidateSize(); splashScreen.style.display = 'none'; }, 1000);
             }, 3500);
         };
     </script>
