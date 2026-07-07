@@ -65,6 +65,11 @@
             border-radius: 0 !important;
         }
 
+        /* Скрываем шапку на мобильных, когда карта развернута, чтобы освободить углы */
+        body.map-fullscreen-on #sticky-header {
+            display: none !important;
+        }
+
         body { 
             background-color: #F2F2F7; 
             -webkit-font-smoothing: antialiased;
@@ -836,29 +841,27 @@ if (hasInsuranceRestriction) {
         function toggleFullscreen() {
             const container = document.getElementById('map-container');
             const icon = document.getElementById('fullscreen-icon');
-            
-            // Проверяем, мобильное ли это устройство
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
             if (isMobile) {
-                // Для мобильных используем надежный CSS-метод (работает на iOS и Android без сбоев)
                 if (container.classList.contains('mobile-fullscreen-active')) {
                     container.classList.remove('mobile-fullscreen-active');
+                    document.body.classList.remove('map-fullscreen-on'); // Убираем класс с body (шапка возвращается)
                     icon.classList.replace('fa-compress', 'fa-expand');
-                    document.body.style.overflow = ''; // Возвращаем скролл страницы
+                    document.body.style.overflow = '';
                 } else {
                     container.classList.add('mobile-fullscreen-active');
+                    document.body.classList.add('map-fullscreen-on'); // Добавляем класс на body (шапка скрывается)
                     icon.classList.replace('fa-expand', 'fa-compress');
-                    document.body.style.overflow = 'hidden'; // Блокируем скролл под картой
+                    document.body.style.overflow = 'hidden';
                 }
-                // Перерисовываем карту под новый размер
                 setTimeout(() => { map.invalidateSize(); }, 300);
             } else {
                 // Для ПК оставляем стандартный нативный Fullscreen
                 if (!document.fullscreenElement) {
                     container.requestFullscreen().catch(err => {
-                        // Фоллбек, если браузер на ПК выдал ошибку безопасности
                         container.classList.add('mobile-fullscreen-active');
+                        document.body.classList.add('map-fullscreen-on');
                         icon.classList.replace('fa-expand', 'fa-compress');
                     });
                 } else {
@@ -866,6 +869,7 @@ if (hasInsuranceRestriction) {
                 }
             }
         }
+
 
         async function fetchCountry(lat, lng, type) {
             const input = document.getElementById(`address-${type.toLowerCase()}-input`);
