@@ -1094,7 +1094,11 @@ if (hasInsuranceRestriction) {
 
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([48, 15], 3);
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
+            
+        
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 16
+            }).addTo(map);
             
             iconA = L.divIcon({ className: 'pulse-marker marker-seller', iconSize: [22, 22], iconAnchor: [11, 11] });
             iconB = L.divIcon({ className: 'pulse-marker marker-buyer', iconSize: [22, 22], iconAnchor: [11, 11] });
