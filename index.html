@@ -1094,8 +1094,8 @@ if (hasInsuranceRestriction) {
 
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([48, 15], 3);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 10 }).addTo(map);
-
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
+            
             iconA = L.divIcon({ className: 'pulse-marker marker-seller', iconSize: [22, 22], iconAnchor: [11, 11] });
             iconB = L.divIcon({ className: 'pulse-marker marker-buyer', iconSize: [22, 22], iconAnchor: [11, 11] });
             iconTransit = L.divIcon({ className: 'pulse-marker marker-transit', iconSize: [22, 22], iconAnchor: [11, 11] });
